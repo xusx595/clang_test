@@ -626,7 +626,9 @@ LIBBUILTIN(memset, "v*v*iz",      "f",     "string.h", ALL_LANGUAGES)
 LIBBUILTIN(strerror, "c*i",       "f",     "string.h", ALL_LANGUAGES)
 LIBBUILTIN(strlen, "zcC*",        "f",     "string.h", ALL_LANGUAGES)
 // C99 stdio.h
+#ifndef __SNUCL_COMPILER__
 LIBBUILTIN(printf, "icC*.",       "fp:0:", "stdio.h", ALL_LANGUAGES)
+#endif
 LIBBUILTIN(fprintf, "iP*cC*.",    "fp:1:", "stdio.h", ALL_LANGUAGES)
 LIBBUILTIN(snprintf, "ic*zcC*.",  "fp:2:", "stdio.h", ALL_LANGUAGES)
 LIBBUILTIN(sprintf, "ic*cC*.",    "fp:1:", "stdio.h", ALL_LANGUAGES)
@@ -703,6 +705,7 @@ LIBBUILTIN(objc_sync_exit, "iG", "f", "/objc/objc-sync.h", OBJC_LANG)
 
 BUILTIN(__builtin_objc_memmove_collectable, "v*v*vC*z", "nF")
 
+#ifndef __SNUCL_COMPILER__
 // Builtin math library functions
 LIBBUILTIN(pow, "ddd", "fe", "math.h", ALL_LANGUAGES)
 LIBBUILTIN(powl, "LdLdLd", "fe", "math.h", ALL_LANGUAGES)
@@ -719,6 +722,7 @@ LIBBUILTIN(sinf, "ff", "fe", "math.h", ALL_LANGUAGES)
 LIBBUILTIN(cos, "dd", "fe", "math.h", ALL_LANGUAGES)
 LIBBUILTIN(cosl, "LdLd", "fe", "math.h", ALL_LANGUAGES)
 LIBBUILTIN(cosf, "ff", "fe", "math.h", ALL_LANGUAGES)
+#endif
 
 // Blocks runtime Builtin math library functions
 LIBBUILTIN(_Block_object_assign, "vv*vC*iC", "f", "Blocks.h", ALL_LANGUAGES)

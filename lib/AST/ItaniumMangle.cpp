@@ -1317,6 +1317,9 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::Long: Out << 'l'; break;
   case BuiltinType::LongLong: Out << 'x'; break;
   case BuiltinType::Int128: Out << 'n'; break;
+#ifdef __SNUCL_COMPILER__
+  case BuiltinType::Half: Out << 'h'; break;
+#endif
   case BuiltinType::Float: Out << 'f'; break;
   case BuiltinType::Double: Out << 'd'; break;
   case BuiltinType::LongDouble: Out << 'e'; break;
@@ -1901,6 +1904,10 @@ void CXXNameMangler::mangleExpression(const Expr *E, unsigned Arity) {
     }
     break;
   }
+
+#ifdef __SNUCL_COMPILER__
+  case Expr::VecStepExprClass: break;
+#endif
 
   case Expr::CXXThrowExprClass: {
     const CXXThrowExpr *TE = cast<CXXThrowExpr>(E);

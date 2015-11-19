@@ -471,5 +471,11 @@ def warn_pragma_expected_enable_disable : Warning<
 def warn_pragma_unknown_extension : Warning<
   "unknown OpenCL extension %0 - ignoring">;
 
+// __SNUCL_COMPILER__
+def err_static_in_opencl_kernel : Error<
+  "'static' cannot be used in the kernel function">;
+def err_wrong_param_for_vec_type_hint : Error<
+  "not a builtin type">;
+
 } // end of Parse Issue category.
 } // end of Parser diagnostics

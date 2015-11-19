@@ -1997,6 +1997,17 @@ public:
     ActOnSizeOfAlignOfExpr(SourceLocation OpLoc, bool isSizeof, bool isType,
                            void *TyOrEx, const SourceRange &ArgRange);
 
+#ifdef __SNUCL_COMPILER__
+  ExprResult CreateVecStepExpr(TypeSourceInfo *T,
+                               SourceLocation OpLoc,
+                               SourceRange R);
+  ExprResult CreateVecStepExpr(Expr *E, SourceLocation OpLoc,
+                               SourceRange R);
+  ExprResult
+    ActOnVecStepExpr(SourceLocation OpLoc, bool isType,
+                     void *TyOrEx, const SourceRange &ArgRange);
+#endif
+
   ExprResult CheckPlaceholderExpr(Expr *E, SourceLocation Loc);
 
   bool CheckSizeOfAlignOfOperand(QualType type, SourceLocation OpLoc,
@@ -4957,6 +4968,9 @@ public:
   QualType CheckVectorOperands(SourceLocation l, Expr *&lex, Expr *&rex);
   QualType CheckVectorCompareOperands(Expr *&lex, Expr *&rx,
                                       SourceLocation l, bool isRel);
+#ifdef __SNUCL_COMPILER__
+  QualType CheckVectorLNotOperand(Expr *&op, SourceLocation OpLoc);
+#endif
 
   /// type checking declaration initializers (C99 6.7.8)
   bool CheckInitList(const InitializedEntity &Entity,

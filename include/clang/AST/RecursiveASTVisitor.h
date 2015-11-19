@@ -1794,6 +1794,16 @@ DEF_TRAVERSE_STMT(SizeOfAlignOfExpr, {
       TRY_TO(TraverseTypeLoc(S->getArgumentTypeInfo()->getTypeLoc()));
   })
 
+#ifdef __SNUCL_COMPILER__
+DEF_TRAVERSE_STMT(VecStepExpr, {
+    // The child-iterator will pick up the arg if it's an expression,
+    // but not if it's a type.
+    if (S->isArgumentType())
+      TRY_TO(TraverseTypeLoc(S->getArgumentTypeInfo()->getTypeLoc()));
+  })
+
+#endif
+
 DEF_TRAVERSE_STMT(CXXTypeidExpr, {
     // The child-iterator will pick up the arg if it's an expression,
     // but not if it's a type.

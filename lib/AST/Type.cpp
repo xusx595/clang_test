@@ -768,6 +768,14 @@ bool Type::isAggregateType() const {
   return isa<ArrayType>(CanonicalType);
 }
 
+#ifdef __SNUCL_COMPILER__
+bool Type::isHalfType() const {
+  if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
+    return BT->getKind() == BuiltinType::Half;
+  return false;
+}
+#endif
+
 /// isConstantSizeType - Return true if this is not a variable sized type,
 /// according to the rules of C99 6.7.5p3.  It is not legal to call this on
 /// incomplete types or dependent types.
@@ -1094,6 +1102,45 @@ const char *Type::getTypeClassName() const {
 }
 
 const char *BuiltinType::getName(const LangOptions &LO) const {
+#ifdef __SNUCL_COMPILER__
+  if (LO.OpenCL) {
+    switch (getKind()) {
+    case Void:              return "void";
+    case Bool:              return "_Bool";
+    case Char_S:            
+    case Char_U:            
+    case SChar:             return "schar";
+    case Short:             return "short";
+    case Int:               return "int";
+    case Long:              return "llong";
+    case LongLong:          return "int128_t";
+    case Int128:            return "__int128_t";
+    case UChar:             return "uchar";
+    case UShort:            return "ushort";
+    case UInt:              return "uint";
+    case ULong:             return "ullong";
+    case ULongLong:         return "uint128_t";
+    case UInt128:           return "__uint128_t";
+    case Half:              return "half";
+    case Float:             return "float";
+    case Double:            return "double";
+    case LongDouble:        return "long double";
+    case WChar_S:
+    case WChar_U:           return "wchar_t";
+    case Char16:            return "char16_t";
+    case Char32:            return "char32_t";
+    case NullPtr:           return "nullptr_t";
+    case Overload:          return "<overloaded function type>";
+    case Dependent:         return "<dependent type>";
+    case ObjCId:            return "id";
+    case ObjCClass:         return "Class";
+    case ObjCSel:           return "SEL";
+    }
+    
+    llvm_unreachable("Invalid builtin type.");
+  }
+#endif
+
   switch (getKind()) {
   case Void:              return "void";
   case Bool:              return LO.Bool ? "bool" : "_Bool";
@@ -1111,6 +1158,9 @@ const char *BuiltinType::getName(const LangOptions &LO) const {
   case ULong:             return "unsigned long";
   case ULongLong:         return "unsigned long long";
   case UInt128:           return "__uint128_t";
+#ifdef __SNUCL_COMPILER__
+  case Half:              return "half";
+#endif
   case Float:             return "float";
   case Double:            return "double";
   case LongDouble:        return "long double";

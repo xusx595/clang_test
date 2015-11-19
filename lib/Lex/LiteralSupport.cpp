@@ -695,6 +695,13 @@ NumericLiteralParser::GetFloatValue(llvm::APFloat &Result) {
                                   APFloat::rmNearestTiesToEven);
 }
 
+#ifdef __SNUCL_COMPILER__
+std::string NumericLiteralParser::GetFloatValueAsString() {
+  std::string V(ThisTokBegin, ThisTokEnd-ThisTokBegin);
+  return V;
+}
+#endif
+
 
 CharLiteralParser::CharLiteralParser(const char *begin, const char *end,
                                      SourceLocation Loc, Preprocessor &PP) {

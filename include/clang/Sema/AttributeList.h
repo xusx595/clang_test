@@ -18,6 +18,9 @@
 #include "llvm/Support/Allocator.h"
 #include "clang/Sema/Ownership.h"
 #include "clang/Basic/SourceLocation.h"
+#ifdef __SNUCL_COMPILER__
+#include "clang/AST/Type.h"
+#endif
 #include <cassert>
 
 namespace clang {
@@ -31,6 +34,9 @@ namespace clang {
 /// 2: __attribute__(( mode(byte) )). ParmName used, Args/NumArgs unused.
 /// 3: __attribute__(( format(printf, 1, 2) )). ParmName/Args/NumArgs all used.
 /// 4: __attribute__(( aligned(16) )). ParmName is unused, Args/Num used.
+#ifdef __SNUCL_COMPILER__
+/// 5: __attribute__(( vec_type_hint(type) ))
+#endif
 ///
 class AttributeList {
 public:
@@ -49,6 +55,10 @@ private:
 
   /// True if already diagnosed as invalid.
   mutable bool Invalid;
+
+#ifdef __SNUCL_COMPILER__
+  QualType ParamType;
+#endif
 
   AttributeList(const AttributeList &); // DO NOT IMPLEMENT
   void operator=(const AttributeList &); // DO NOT IMPLEMENT
@@ -162,6 +172,11 @@ public:
     AT_weakref,
     AT_weak_import,
     AT_reqd_wg_size,
+#ifdef __SNUCL_COMPILER__
+    AT_wg_size_hint,
+    AT_vec_type_hint,
+    AT_endian,
+#endif
     AT_init_priority,
     IgnoredAttribute,
     UnknownAttribute
@@ -197,6 +212,11 @@ public:
     assert(Arg < NumArgs && "Arg access out of range!");
     return Args[Arg];
   }
+
+#ifdef __SNUCL_COMPILER__
+  QualType getParamType() const { return ParamType; }
+  void setParamType(QualType T) { ParamType = T; }
+#endif
 
   class arg_iterator {
     Expr** X;

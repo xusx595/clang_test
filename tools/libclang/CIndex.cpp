@@ -1373,6 +1373,9 @@ bool CursorVisitor::VisitBuiltinTypeLoc(BuiltinTypeLoc TL) {
   case BuiltinType::Long:
   case BuiltinType::LongLong:
   case BuiltinType::Int128:
+#ifdef __SNUCL_COMPILER__
+  case BuiltinType::Half:
+#endif
   case BuiltinType::Float:
   case BuiltinType::Double:
   case BuiltinType::LongDouble:

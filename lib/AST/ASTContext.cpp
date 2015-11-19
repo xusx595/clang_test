@@ -346,6 +346,9 @@ void ASTContext::InitBuiltinTypes() {
   InitBuiltinType(UnsignedLongLongTy,  BuiltinType::ULongLong);
 
   // C99 6.2.5p10.
+#ifdef __SNUCL_COMPILER__
+  InitBuiltinType(HalfTy,              BuiltinType::Half);
+#endif
   InitBuiltinType(FloatTy,             BuiltinType::Float);
   InitBuiltinType(DoubleTy,            BuiltinType::Double);
   InitBuiltinType(LongDoubleTy,        BuiltinType::LongDouble);
@@ -557,6 +560,9 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
   assert(BT && "Not a floating point type!");
   switch (BT->getKind()) {
   default: assert(0 && "Not a floating point type!");
+#ifdef __SNUCL_COMPILER__
+  case BuiltinType::Half:       return Target.getHalfFormat();
+#endif
   case BuiltinType::Float:      return Target.getFloatFormat();
   case BuiltinType::Double:     return Target.getDoubleFormat();
   case BuiltinType::LongDouble: return Target.getLongDoubleFormat();
@@ -774,6 +780,12 @@ ASTContext::getTypeInfo(const Type *T) const {
       Width = 128;
       Align = 128; // int128_t is 128-bit aligned on all targets.
       break;
+#ifdef __SNUCL_COMPILER__
+    case BuiltinType::Half:
+      Width = Target.getHalfWidth();
+      Align = Target.getHalfAlign();
+      break;
+#endif
     case BuiltinType::Float:
       Width = Target.getFloatWidth();
       Align = Target.getFloatAlign();

@@ -110,6 +110,11 @@ def Aligned : InheritableAttr {
   let Subjects = [NonBitField, NormalVar, Tag];
   let Args = [AlignedArgument<"Alignment">];
   let Namespaces = ["", "std"];
+  // __SNUCL_COMPILER__
+  let AdditionalMembers = [{
+    virtual std::string getAsStringWithContext(ASTContext &C);
+    bool hasAlignmentExpr() { return (alignmentExpr != NULL); }
+  }];
 }
 
 def AlignMac68k : InheritableAttr {
@@ -400,6 +405,8 @@ def Ownership : InheritableAttr {
 
 def Packed : InheritableAttr {
   let Spellings = ["packed"];
+  // __SNUCL_COMPILER__
+  let AdditionalMembers = [{virtual std::string getAsString();}];
 }
 
 def Pure : InheritableAttr {
@@ -415,7 +422,31 @@ def ReqdWorkGroupSize : InheritableAttr {
   let Spellings = ["reqd_work_group_size"];
   let Args = [UnsignedArgument<"XDim">, UnsignedArgument<"YDim">,
               UnsignedArgument<"ZDim">];
+  // __SNUCL_COMPILER__
+  let AdditionalMembers = [{virtual std::string getAsString();}];
 }
+
+/////////////////////////////////////////////////////////////////////////////
+// __SNUCL_COMPILER__
+def WorkGroupSizeHint : InheritableAttr {
+  let Spellings = ["work_group_size_hint"];
+  let Args = [UnsignedArgument<"XDim">, UnsignedArgument<"YDim">,
+              UnsignedArgument<"ZDim">];
+  let AdditionalMembers = [{virtual std::string getAsString();}];
+}
+
+def VecTypeHint : InheritableAttr {
+  let Spellings = ["vec_type_hint"];
+  let Args = [TypeArgument<"HintType">];
+  let AdditionalMembers = [{virtual std::string getAsString();}];
+}
+
+def Endian : InheritableAttr {
+  let Spellings = ["endian"];
+  let Args = [StringArgument<"EndianType">];
+  let AdditionalMembers = [{virtual std::string getAsString();}];
+}
+/////////////////////////////////////////////////////////////////////////////
 
 def InitPriority : InheritableAttr {
   let Spellings = ["init_priority"];

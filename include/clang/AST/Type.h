@@ -1207,6 +1207,9 @@ public:
   bool isDerivedType() const;      // C99 6.2.5p20
   bool isScalarType() const;       // C99 6.2.5p21 (arithmetic + pointers)
   bool isAggregateType() const;
+#ifdef __SNUCL_COMPILER__
+  bool isHalfType() const;
+#endif
 
   // Type Predicates: Check to see if this type is structurally the specified
   // type, ignoring typedefs and qualifiers.
@@ -1471,6 +1474,9 @@ public:
     LongLong,
     Int128,   // __int128_t
 
+#ifdef __SNUCL_COMPILER__
+    Half,
+#endif
     Float, Double, LongDouble,
 
     NullPtr,  // This is the type of C++0x 'nullptr'.
@@ -1523,7 +1529,11 @@ public:
   }
 
   bool isFloatingPoint() const {
+#ifdef __SNUCL_COMPILER__
+    return getKind() >= Half && getKind() <= LongDouble;
+#else
     return getKind() >= Float && getKind() <= LongDouble;
+#endif
   }
 
   /// Determines whether this type is a "forbidden" placeholder type,

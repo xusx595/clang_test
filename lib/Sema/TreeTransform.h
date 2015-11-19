@@ -1322,6 +1322,33 @@ public:
     return move(Result);
   }
 
+#ifdef __SNUCL_COMPILER__
+  /// \brief Build a new sizeof or alignof expression with a type argument.
+  ///
+  /// By default, performs semantic analysis to build the new expression.
+  /// Subclasses may override this routine to provide different behavior.
+  ExprResult RebuildVecStep(TypeSourceInfo *TInfo,
+                                        SourceLocation OpLoc,
+                                        SourceRange R) {
+    return getSema().CreateVecStepExpr(TInfo, OpLoc, R);
+  }
+
+  /// \brief Build a new sizeof or alignof expression with an expression
+  /// argument.
+  ///
+  /// By default, performs semantic analysis to build the new expression.
+  /// Subclasses may override this routine to provide different behavior.
+  ExprResult RebuildVecStep(Expr *SubExpr, SourceLocation OpLoc,
+                                        SourceRange R) {
+    ExprResult Result
+      = getSema().CreateVecStepExpr(SubExpr, OpLoc, R);
+    if (Result.isInvalid())
+      return ExprError();
+
+    return move(Result);
+  }
+#endif
+
   /// \brief Build a new array subscript expression.
   ///
   /// By default, performs semantic analysis to build the new expression.
@@ -5571,6 +5598,44 @@ TreeTransform<Derived>::TransformSizeOfAlignOfExpr(SizeOfAlignOfExpr *E) {
                                            E->isSizeOf(),
                                            E->getSourceRange());
 }
+
+#ifdef __SNUCL_COMPILER__
+template<typename Derived>
+ExprResult
+TreeTransform<Derived>::TransformVecStepExpr(VecStepExpr *E) {
+  if (E->isArgumentType()) {
+    TypeSourceInfo *OldT = E->getArgumentTypeInfo();
+
+    TypeSourceInfo *NewT = getDerived().TransformType(OldT);
+    if (!NewT)
+      return ExprError();
+
+    if (!getDerived().AlwaysRebuild() && OldT == NewT)
+      return SemaRef.Owned(E);
+
+    return getDerived().RebuildVecStep(NewT, E->getOperatorLoc(),
+                                             E->getSourceRange());
+  }
+
+  ExprResult SubExpr;
+  {
+    // C++0x [expr.sizeof]p1:
+    //   The operand is either an expression, which is an unevaluated operand
+    //   [...]
+    EnterExpressionEvaluationContext Unevaluated(SemaRef, Sema::Unevaluated);
+
+    SubExpr = getDerived().TransformExpr(E->getArgumentExpr());
+    if (SubExpr.isInvalid())
+      return ExprError();
+
+    if (!getDerived().AlwaysRebuild() && SubExpr.get() == E->getArgumentExpr())
+      return SemaRef.Owned(E);
+  }
+
+  return getDerived().RebuildVecStep(SubExpr.get(), E->getOperatorLoc(),
+                                           E->getSourceRange());
+}
+#endif
 
 template<typename Derived>
 ExprResult

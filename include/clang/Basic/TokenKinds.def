@@ -349,6 +349,14 @@ KEYWORD(__forceinline               , KEYALL)
 // OpenCL-specific keywords (see OpenCL 1.1 [6.1.9])
 KEYWORD(__kernel                    , KEYOPENCL)
 ALIAS("kernel", __kernel            , KEYOPENCL)
+#ifdef __SNUCL_COMPILER__
+KEYWORD(half                        , KEYOPENCL)
+KEYWORD(uchar                       , KEYOPENCL)
+KEYWORD(ushort                      , KEYOPENCL)
+KEYWORD(uint                        , KEYOPENCL)
+KEYWORD(ulong                       , KEYOPENCL)
+KEYWORD(vec_step                    , KEYOPENCL)
+#endif
 
 // Borland Extensions.
 KEYWORD(__pascal                    , KEYALL)

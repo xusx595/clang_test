@@ -40,6 +40,9 @@ namespace clang {
     TST_char16,       // C++0x char16_t
     TST_char32,       // C++0x char32_t
     TST_int,
+#ifdef __SNUCL_COMPILER__
+    TST_half,
+#endif
     TST_float,
     TST_double,
     TST_bool,         // _Bool
@@ -157,6 +160,24 @@ namespace clang {
   inline bool isLegalForVariable(StorageClass SC) {
     return true;
   }
+
+#ifdef __SNUCL_COMPILER__
+  /// \brief OpenCL address qualifer.
+  enum AddrQualifier {
+    AQ_Global,
+    AQ_Constant,
+    AQ_Local,
+    AQ_Private
+  };
+
+  /// \brief OpenCL access qualifier.
+  enum AccessQualifier {
+    ACQ_ReadOnly,
+    ACQ_WriteOnly,
+    ACQ_ReadWrite,
+    ACQ_None
+  };
+#endif
 } // end namespace clang
 
 #endif // LLVM_CLANG_BASIC_SPECIFIERS_H

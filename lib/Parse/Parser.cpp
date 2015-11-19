@@ -30,6 +30,9 @@ Parser::Parser(Preprocessor &pp, Sema &actions)
   NumCachedScopes = 0;
   ParenCount = BracketCount = BraceCount = 0;
   ObjCImpDecl = 0;
+#ifdef __SNUCL_COMPILER__
+  InOpenCLKernelFunction = false;
+#endif
 
   // Add #pragma handlers. These are removed and destroyed in the
   // destructor.

@@ -66,6 +66,9 @@ protected:
   unsigned char PointerWidth, PointerAlign;
   unsigned char BoolWidth, BoolAlign;
   unsigned char IntWidth, IntAlign;
+#ifdef __SNUCL_COMPILER__
+  unsigned char HalfWidth, HalfAlign;
+#endif
   unsigned char FloatWidth, FloatAlign;
   unsigned char DoubleWidth, DoubleAlign;
   unsigned char LongDoubleWidth, LongDoubleAlign;
@@ -75,6 +78,9 @@ protected:
   const char *DescriptionString;
   const char *UserLabelPrefix;
   const char *MCountName;
+#ifdef __SNUCL_COMPILER__
+  const llvm::fltSemantics *HalfFormat;
+#endif
   const llvm::fltSemantics *FloatFormat, *DoubleFormat, *LongDoubleFormat;
   unsigned char RegParmMax, SSERegParmMax;
   TargetCXXABI CXXABI;
@@ -204,6 +210,13 @@ public:
   /// bits.
   unsigned getChar32Width() const { return getTypeWidth(Char32Type); }
   unsigned getChar32Align() const { return getTypeAlign(Char32Type); }
+
+#ifdef __SNUCL_COMPILER__
+  /// getHalfWidth/Align/Format - Return the size/align/format of 'half'.
+  unsigned getHalfWidth() const { return HalfWidth; }
+  unsigned getHalfAlign() const { return HalfAlign; }
+  const llvm::fltSemantics &getHalfFormat() const { return *HalfFormat; }
+#endif
 
   /// getFloatWidth/Align/Format - Return the size/align/format of 'float'.
   unsigned getFloatWidth() const { return FloatWidth; }

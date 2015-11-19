@@ -1,3 +1,50 @@
+/*****************************************************************************/
+/*                                                                           */
+/* Copyright (c) 2011-2013 Seoul National University.                        */
+/* All rights reserved.                                                      */
+/*                                                                           */
+/* Redistribution and use in source and binary forms, with or without        */
+/* modification, are permitted provided that the following conditions        */
+/* are met:                                                                  */
+/*   1. Redistributions of source code must retain the above copyright       */
+/*      notice, this list of conditions and the following disclaimer.        */
+/*   2. Redistributions in binary form must reproduce the above copyright    */
+/*      notice, this list of conditions and the following disclaimer in the  */
+/*      documentation and/or other materials provided with the distribution. */
+/*   3. Neither the name of Seoul National University nor the names of its   */
+/*      contributors may be used to endorse or promote products derived      */
+/*      from this software without specific prior written permission.        */
+/*                                                                           */
+/* THIS SOFTWARE IS PROVIDED BY SEOUL NATIONAL UNIVERSITY "AS IS" AND ANY    */
+/* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED */
+/* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE    */
+/* DISCLAIMED. IN NO EVENT SHALL SEOUL NATIONAL UNIVERSITY BE LIABLE FOR ANY */
+/* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL        */
+/* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS   */
+/* OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)     */
+/* HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,       */
+/* STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN  */
+/* ANY WAY OUT OF THE USE OF THIS  SOFTWARE, EVEN IF ADVISED OF THE          */
+/* POSSIBILITY OF SUCH DAMAGE.                                               */
+/*                                                                           */
+/* Contact information:                                                      */
+/*   Center for Manycore Programming                                         */
+/*   School of Computer Science and Engineering                              */
+/*   Seoul National University, Seoul 151-744, Korea                         */
+/*   http://aces.snu.ac.kr                                                   */
+/*                                                                           */
+/* Contributors:                                                             */
+/*   Sangmin Seo, Jungwon Kim, Gangwon Jo, Jun Lee, Jeongho Nah,             */
+/*   Jungho Park, Junghyun Kim, and Jaejin Lee                               */
+/*                                                                           */
+/*****************************************************************************/
+
+/*****************************************************************************/
+/* This file is based on the SNU-SAMSUNG OpenCL Compiler and is distributed  */
+/* under GNU General Public License.                                         */
+/* See LICENSE.SNU-SAMSUNG_OpenCL_C_Compiler.TXT for details.                */
+/*****************************************************************************/
+
 //===--- Expr.h - Classes for representing expressions ----------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -1038,6 +1085,17 @@ class FloatingLiteral : public Expr {
   APFloatStorage Num;
   bool IsExact : 1;
   SourceLocation Loc;
+#ifdef __SNUCL_COMPILER__
+  std::string ValueStr;
+
+  FloatingLiteral(ASTContext &C, const llvm::APFloat &V, bool isexact,
+                  QualType Type, SourceLocation L, std::string VStr)
+    : Expr(FloatingLiteralClass, Type, VK_RValue, OK_Ordinary, false, false,
+           false),
+      IsExact(isexact), Loc(L), ValueStr(VStr) {
+    setValue(C, V);
+  }
+#endif
 
   FloatingLiteral(ASTContext &C, const llvm::APFloat &V, bool isexact,
                   QualType Type, SourceLocation L)
@@ -1052,6 +1110,11 @@ class FloatingLiteral : public Expr {
     : Expr(FloatingLiteralClass, Empty), IsExact(false) { }
 
 public:
+#ifdef __SNUCL_COMPILER__
+  static FloatingLiteral *Create(ASTContext &C, const llvm::APFloat &V,
+                                 bool isexact, QualType Type, SourceLocation L,
+                                 std::string VStr);
+#endif
   static FloatingLiteral *Create(ASTContext &C, const llvm::APFloat &V,
                                  bool isexact, QualType Type, SourceLocation L);
   static FloatingLiteral *Create(ASTContext &C, EmptyShell Empty);
@@ -1060,6 +1123,10 @@ public:
   void setValue(ASTContext &C, const llvm::APFloat &Val) {
     Num.setValue(C, Val);
   }
+
+#ifdef __SNUCL_COMPILER__
+  std::string getValueAsString() { return ValueStr; }
+#endif
 
   bool isExact() const { return IsExact; }
   void setExact(bool E) { IsExact = E; }
@@ -1644,6 +1711,92 @@ public:
   child_range children();
 };
 
+#ifdef __SNUCL_COMPILER__
+/// VecStepExpr - [OpenCL 6.12.12] - This is for vec_step() builtin, both of
+/// types and expressions.
+class VecStepExpr : public Expr {
+  bool isType : 1;    // true if operand is a type, false if an expression
+  union {
+    TypeSourceInfo *Ty;
+    Stmt *Ex;
+  } Argument;
+  SourceLocation OpLoc, RParenLoc;
+
+public:
+  VecStepExpr(TypeSourceInfo *TInfo, QualType resultType, SourceLocation op,
+              SourceLocation rp) :
+      Expr(VecStepExprClass, resultType, VK_RValue, OK_Ordinary,
+           false, // Never type-dependent (C++ [temp.dep.expr]p3).
+           // Value-dependent if the argument is type-dependent.
+           TInfo->getType()->isDependentType(),
+           TInfo->getType()->containsUnexpandedParameterPack()),
+      isType(true), OpLoc(op), RParenLoc(rp) {
+    Argument.Ty = TInfo;
+  }
+
+  VecStepExpr(Expr *E, QualType resultType, SourceLocation op,
+              SourceLocation rp) :
+      Expr(VecStepExprClass, resultType, VK_RValue, OK_Ordinary,
+           false, // Never type-dependent (C++ [temp.dep.expr]p3).
+           // Value-dependent if the argument is type-dependent.
+           E->isTypeDependent(),
+           E->containsUnexpandedParameterPack()),
+      isType(false), OpLoc(op), RParenLoc(rp) {
+    Argument.Ex = E;
+  }
+
+  /// \brief Construct an empty sizeof/alignof expression.
+  explicit VecStepExpr(EmptyShell Empty)
+    : Expr(VecStepExprClass, Empty) { }
+
+  bool isArgumentType() const { return isType; }
+  QualType getArgumentType() const {
+    return getArgumentTypeInfo()->getType();
+  }
+  TypeSourceInfo *getArgumentTypeInfo() const {
+    assert(isArgumentType() && "calling getArgumentType() when arg is expr");
+    return Argument.Ty;
+  }
+  Expr *getArgumentExpr() {
+    assert(!isArgumentType() && "calling getArgumentExpr() when arg is type");
+    return static_cast<Expr*>(Argument.Ex);
+  }
+  const Expr *getArgumentExpr() const {
+    return const_cast<VecStepExpr*>(this)->getArgumentExpr();
+  }
+
+  void setArgument(Expr *E) { Argument.Ex = E; isType = false; }
+  void setArgument(TypeSourceInfo *TInfo) {
+    Argument.Ty = TInfo;
+    isType = true;
+  }
+
+  /// Gets the argument type, or the type of the argument expression, whichever
+  /// is appropriate.
+  QualType getTypeOfArgument() const {
+    return isArgumentType() ? getArgumentType() : getArgumentExpr()->getType();
+  }
+
+  SourceLocation getOperatorLoc() const { return OpLoc; }
+  void setOperatorLoc(SourceLocation L) { OpLoc = L; }
+
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+  void setRParenLoc(SourceLocation L) { RParenLoc = L; }
+
+  SourceRange getSourceRange() const {
+    return SourceRange(OpLoc, RParenLoc);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == VecStepExprClass;
+  }
+  static bool classof(const VecStepExpr *) { return true; }
+
+  // Iterators
+  child_range children();
+};
+#endif
+
 //===----------------------------------------------------------------------===//
 // Postfix Operators.
 //===----------------------------------------------------------------------===//
@@ -1736,6 +1889,12 @@ class CallExpr : public Expr {
   Stmt **SubExprs;
   unsigned NumArgs;
   SourceLocation RParenLoc;
+#ifdef __SNUCL_COMPILER__
+  Expr *ReturnExpr;
+  bool IsTransformed;
+  llvm::SmallVector<VarDecl*, 4> NewArgs;
+  Stmt *NextStmt;
+#endif
 
 protected:
   // These versions of the constructor are for derived classes.
@@ -1810,6 +1969,16 @@ public:
   /// Any orphaned expressions are deleted by this, and any new operands are set
   /// to null.
   void setNumArgs(ASTContext& C, unsigned NumArgs);
+
+#ifdef __SNUCL_COMPILER__
+  bool isTransformed() { return IsTransformed; }
+  void setReturnExpr(Expr *S) { ReturnExpr = S; IsTransformed = true; }
+  Expr *getReturnExpr() { return ReturnExpr; }
+  void addNewArg(VarDecl *VD) { NewArgs.push_back(VD); }
+  VarDecl *getNewArg(unsigned i) { return NewArgs[i]; }
+  void setNextStmt(Stmt *S) { NextStmt = S; }
+  Stmt *getNextStmt() { return NextStmt; }
+#endif
 
   typedef ExprIterator arg_iterator;
   typedef ConstExprIterator const_arg_iterator;
@@ -2712,6 +2881,12 @@ public:
   
   Expr *getLHS() const { return cast<Expr>(SubExprs[LHS]); }
   Expr *getRHS() const { return cast<Expr>(SubExprs[RHS]); }
+
+#ifdef __SNUCL_COMPILER__
+  void setCond(Expr *E) { SubExprs[COND] = E; }
+  void setLHS(Expr *E)  { SubExprs[LHS] = E; }
+  void setRHS(Expr *E)  { SubExprs[RHS] = E; }
+#endif
 
   SourceRange getSourceRange() const {
     return SourceRange(getCond()->getLocStart(), getRHS()->getLocEnd());
@@ -3636,6 +3811,10 @@ public:
     assert(Init < getNumExprs() && "Initializer access out of range!");
     return cast_or_null<Expr>(Exprs[Init]);
   }
+
+#ifdef __SNUCL_COMPILER__
+  void setExpr(unsigned Init, Expr *E) { Exprs[Init] = E; }
+#endif
 
   Expr **getExprs() { return reinterpret_cast<Expr **>(Exprs); }
 

@@ -715,6 +715,18 @@ void StmtPrinter::VisitSizeOfAlignOfExpr(SizeOfAlignOfExpr *Node) {
     PrintExpr(Node->getArgumentExpr());
   }
 }
+
+#ifdef __SNUCL_COMPILER__
+void StmtPrinter::VisitVecStepExpr(VecStepExpr *Node) {
+  OS << "vec_step";
+  if (Node->isArgumentType())
+    OS << "(" << Node->getArgumentType().getAsString(Policy) << ")";
+  else {
+    PrintExpr(Node->getArgumentExpr());
+  }
+}
+#endif
+
 void StmtPrinter::VisitArraySubscriptExpr(ArraySubscriptExpr *Node) {
   PrintExpr(Node->getLHS());
   OS << "[";

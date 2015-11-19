@@ -1,3 +1,50 @@
+/*****************************************************************************/
+/*                                                                           */
+/* Copyright (c) 2011-2013 Seoul National University.                        */
+/* All rights reserved.                                                      */
+/*                                                                           */
+/* Redistribution and use in source and binary forms, with or without        */
+/* modification, are permitted provided that the following conditions        */
+/* are met:                                                                  */
+/*   1. Redistributions of source code must retain the above copyright       */
+/*      notice, this list of conditions and the following disclaimer.        */
+/*   2. Redistributions in binary form must reproduce the above copyright    */
+/*      notice, this list of conditions and the following disclaimer in the  */
+/*      documentation and/or other materials provided with the distribution. */
+/*   3. Neither the name of Seoul National University nor the names of its   */
+/*      contributors may be used to endorse or promote products derived      */
+/*      from this software without specific prior written permission.        */
+/*                                                                           */
+/* THIS SOFTWARE IS PROVIDED BY SEOUL NATIONAL UNIVERSITY "AS IS" AND ANY    */
+/* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED */
+/* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE    */
+/* DISCLAIMED. IN NO EVENT SHALL SEOUL NATIONAL UNIVERSITY BE LIABLE FOR ANY */
+/* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL        */
+/* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS   */
+/* OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)     */
+/* HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,       */
+/* STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN  */
+/* ANY WAY OUT OF THE USE OF THIS  SOFTWARE, EVEN IF ADVISED OF THE          */
+/* POSSIBILITY OF SUCH DAMAGE.                                               */
+/*                                                                           */
+/* Contact information:                                                      */
+/*   Center for Manycore Programming                                         */
+/*   School of Computer Science and Engineering                              */
+/*   Seoul National University, Seoul 151-744, Korea                         */
+/*   http://aces.snu.ac.kr                                                   */
+/*                                                                           */
+/* Contributors:                                                             */
+/*   Sangmin Seo, Jungwon Kim, Gangwon Jo, Jun Lee, Jeongho Nah,             */
+/*   Jungho Park, Junghyun Kim, and Jaejin Lee                               */
+/*                                                                           */
+/*****************************************************************************/
+
+/*****************************************************************************/
+/* This file is based on the SNU-SAMSUNG OpenCL Compiler and is distributed  */
+/* under GNU General Public License.                                         */
+/* See LICENSE.SNU-SAMSUNG_OpenCL_C_Compiler.TXT for details.                */
+/*****************************************************************************/
+
 //===--- Decl.h - Classes for representing declarations ---------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -666,6 +713,11 @@ protected:
   mutable InitType Init;
 
 private:
+#ifdef __SNUCL_COMPILER__
+  unsigned SecNum;  // for variable expansion
+  unsigned PosNum;  // for variable expansion
+  Stmt *Reinit;     // For the forward substitution optimization
+#endif
   // FIXME: This can be packed into the bitfields in Decl.
   unsigned SClass : 3;
   unsigned SClassAsWritten : 3;
@@ -688,6 +740,9 @@ protected:
           QualType T, TypeSourceInfo *TInfo, StorageClass SC,
           StorageClass SCAsWritten)
     : DeclaratorDecl(DK, DC, L, Id, T, TInfo), Init(),
+#ifdef __SNUCL_COMPILER__
+      SecNum(0), PosNum(0), Reinit(NULL),
+#endif
       ThreadSpecified(false), HasCXXDirectInit(false),
       ExceptionVar(false), NRVOVariable(false) {
     SClass = SC;
@@ -896,6 +951,15 @@ public:
     return (Expr*) S;
   }
 
+#ifdef __SNUCL_COMPILER__
+  unsigned getSecNum()         { return SecNum; }
+  unsigned getPosNum()         { return PosNum; } 
+  void setSecNum(unsigned sec) { SecNum = sec; }
+  void setPosNum(unsigned pos) { PosNum = pos; }
+  Expr *getReinit()            { return (Expr*) Reinit; }
+  void setReinit(Expr *I)      { Reinit = (Stmt*) I; }
+#endif
+
   /// \brief Retrieve the address of the initializer expression.
   Stmt **getInitAddress() {
     if (EvaluatedStmt *ES = Init.dyn_cast<EvaluatedStmt*>())
@@ -1088,12 +1152,20 @@ class ParmVarDecl : public VarDecl {
   unsigned objcDeclQualifier : 6;
   bool HasInheritedDefaultArg : 1;
 
+#ifdef __SNUCL_COMPILER__
+  /// Check if this ParmVarDecl is modified in the function body.
+  bool Modified : 1;
+#endif
+
 protected:
   ParmVarDecl(Kind DK, DeclContext *DC, SourceLocation L,
               IdentifierInfo *Id, QualType T, TypeSourceInfo *TInfo,
               StorageClass S, StorageClass SCAsWritten, Expr *DefArg)
     : VarDecl(DK, DC, L, Id, T, TInfo, S, SCAsWritten),
       objcDeclQualifier(OBJC_TQ_None), HasInheritedDefaultArg(false) {
+#ifdef __SNUCL_COMPILER__
+    Modified = false;
+#endif
     setDefaultArg(DefArg);
   }
 
@@ -1145,6 +1217,11 @@ public:
     return getInit() || hasUnparsedDefaultArg() ||
       hasUninstantiatedDefaultArg();
   }
+
+#ifdef __SNUCL_COMPILER__
+  bool isModified()        { return Modified; }
+  void setModified(bool M) { Modified = M; }
+#endif
 
   /// hasUnparsedDefaultArg - Determines whether this parameter has a
   /// default argument that has not yet been parsed. This will occur
@@ -1250,6 +1327,14 @@ private:
   bool IsTrivial : 1; // sunk from CXXMethodDecl
   bool HasImplicitReturnZero : 1;
 
+#ifdef __SNUCL_COMPILER__
+  bool HasGotoStmt : 1;           // if this has GotoStmt or IndirectGotoStmt
+  bool HasBarrierCall : 1;          // if this invokes barrier() directly
+  bool HasIndirectBarrierCall : 1;  // if this invokes barrier() indirectly
+  bool FullyInlined : 1;
+  FunctionDecl *Duplication;
+#endif
+
   /// \brief End part of this FunctionDecl's source range.
   ///
   /// We could compute the full range in getSourceRange(). However, when we're
@@ -1328,7 +1413,15 @@ protected:
       IsInline(isInlineSpecified), IsInlineSpecified(isInlineSpecified),
       IsVirtualAsWritten(false), IsPure(false), HasInheritedPrototype(false),
       HasWrittenPrototype(true), IsDeleted(false), IsTrivial(false),
-      HasImplicitReturnZero(false), EndRangeLoc(NameInfo.getEndLoc()),
+      HasImplicitReturnZero(false),
+#ifdef __SNUCL_COMPILER__
+      HasGotoStmt(false),
+      HasBarrierCall(false),
+      HasIndirectBarrierCall(false),
+      FullyInlined(false),
+      Duplication(NULL),
+#endif
+      EndRangeLoc(NameInfo.getEndLoc()),
       TemplateOrSpecialization(),
       DNLoc(NameInfo.getInfo()) {}
 
@@ -1390,6 +1483,18 @@ public:
     const FunctionDecl* Definition;
     return hasBody(Definition);
   }
+
+#ifdef __SNUCL_COMPILER__
+  /// isDefined - Returns true if the function is defined.
+  bool isDefined(FunctionDecl *&Definition) const;
+
+  virtual bool isDefined() const {
+    FunctionDecl *Definition;
+    return isDefined(Definition);
+  }
+
+  FunctionDecl *getDefinition() const;
+#endif
 
   /// getBody - Retrieve the body (definition) of the function. The
   /// function body might be in any of the (re-)declarations of this
@@ -1544,6 +1649,23 @@ public:
   StorageClass getStorageClassAsWritten() const {
     return StorageClass(SClassAsWritten);
   }
+
+#ifdef __SNUCL_COMPILER__
+  bool hasGotoStmt()          { return HasGotoStmt; }
+  void setHasGotoStmt(bool B) { HasGotoStmt = B; }
+
+  bool hasBarrierCall()       { return HasBarrierCall; }
+  void setBarrierCall(bool B) { HasBarrierCall = B; }
+
+  bool hasIndirectBarrierCall()       { return HasIndirectBarrierCall; }
+  void setIndirectBarrierCall(bool B) { HasIndirectBarrierCall = B; }
+
+  bool isFullyInlined()        { return FullyInlined; }
+  void setFullyInlined(bool B) { FullyInlined = B; }
+
+  FunctionDecl *getDuplication()        { return Duplication; }
+  void setDuplication(FunctionDecl *FD) { Duplication = FD; }
+#endif
 
   /// \brief Determine whether the "inline" keyword was specified for this
   /// function.

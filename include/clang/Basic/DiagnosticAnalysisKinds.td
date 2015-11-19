@@ -12,4 +12,8 @@ let Component = "Analysis" in {
 // CHECK: use of uninitialized values
 def warn_uninit_val : Warning<"use of uninitialized variable">;
 
+// __SNUCL_COMPILER__
+def err_opencl_recursion: Error<
+  "recursion is not supported in OpenCL: %0">;
+
 }

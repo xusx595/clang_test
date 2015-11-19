@@ -702,6 +702,9 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::UInt: Out << 'I'; break;
   case BuiltinType::Long: Out << 'J'; break;
   case BuiltinType::ULong: Out << 'K'; break;
+#ifdef __SNUCL_COMPILER__
+  case BuiltinType::Half: Out << 'P'; break;
+#endif
   case BuiltinType::Float: Out << 'M'; break;
   case BuiltinType::Double: Out << 'N'; break;
   // TODO: Determine size and mangle accordingly

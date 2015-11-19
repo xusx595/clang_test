@@ -30,6 +30,10 @@ TargetInfo::TargetInfo(const std::string &T) : Triple(T) {
   IntWidth = IntAlign = 32;
   LongWidth = LongAlign = 32;
   LongLongWidth = LongLongAlign = 64;
+#ifdef __SNUCL_COMPILER__
+  HalfWidth = 16;
+  HalfAlign = 16;
+#endif
   FloatWidth = 32;
   FloatAlign = 32;
   DoubleWidth = 64;
@@ -50,6 +54,9 @@ TargetInfo::TargetInfo(const std::string &T) : Triple(T) {
   Int64Type = SignedLongLong;
   SigAtomicType = SignedInt;
   UseBitFieldTypeAlignment = true;
+#ifdef __SNUCL_COMPILER__
+  HalfFormat = &llvm::APFloat::IEEEhalf;
+#endif
   FloatFormat = &llvm::APFloat::IEEEsingle;
   DoubleFormat = &llvm::APFloat::IEEEdouble;
   LongDoubleFormat = &llvm::APFloat::IEEEdouble;

@@ -282,6 +282,9 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T) {
   case DeclSpec::TST_char16:      return "char16_t";
   case DeclSpec::TST_char32:      return "char32_t";
   case DeclSpec::TST_int:         return "int";
+#ifdef __SNUCL_COMPILER__
+  case DeclSpec::TST_half:        return "half";
+#endif
   case DeclSpec::TST_float:       return "float";
   case DeclSpec::TST_double:      return "double";
   case DeclSpec::TST_bool:        return "_Bool";
@@ -320,11 +323,18 @@ bool DeclSpec::SetStorageClassSpec(SCS S, SourceLocation Loc,
   // It seems sensible to prohibit private_extern too
   if (Lang.OpenCL) {
     switch (S) {
+#ifdef __SNUCL_COMPILER__
+    // OpenCL 1.2 allows extern and static.
+    case SCS_private_extern:
+    case SCS_auto:
+    case SCS_register:
+#else
     case SCS_extern:
     case SCS_private_extern:
     case SCS_auto:
     case SCS_register:
     case SCS_static:
+#endif
       DiagID   = diag::err_not_opencl_storage_class_specifier;
       PrevSpec = getSpecifierName(S);
       return true;

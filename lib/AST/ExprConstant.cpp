@@ -2885,6 +2885,14 @@ static ICEDiag CheckICE(const Expr* E, ASTContext &Ctx) {
       return ICEDiag(2, E->getLocStart());
     return NoDiag();
   }
+#ifdef __SNUCL_COMPILER__
+  case Expr::VecStepExprClass: {
+    const VecStepExpr *Exp = cast<VecStepExpr>(E);
+    if (Exp->getTypeOfArgument()->isVariableArrayType())
+      return ICEDiag(2, E->getLocStart());
+    return NoDiag();
+  }
+#endif
   case Expr::BinaryOperatorClass: {
     const BinaryOperator *Exp = cast<BinaryOperator>(E);
     switch (Exp->getOpcode()) {

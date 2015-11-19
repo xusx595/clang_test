@@ -116,6 +116,11 @@ static T PickFP(const llvm::fltSemantics *Sem, T IEEESingleVal,
     return X87DoubleExtendedVal;
   if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::PPCDoubleDouble)
     return PPCDoubleDoubleVal;
+#ifdef __SNUCL_COMPILER__
+  // FIXME: Do we need to make IEEEHalfVal?
+  if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::IEEEhalf)
+    return IEEESingleVal;
+#endif
   assert(Sem == (const llvm::fltSemantics*)&llvm::APFloat::IEEEquad);
   return IEEEQuadVal;
 }
@@ -371,6 +376,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 
   DefineTypeSizeof("__SIZEOF_DOUBLE__", TI.getDoubleWidth(), TI, Builder);
   DefineTypeSizeof("__SIZEOF_FLOAT__", TI.getFloatWidth(), TI, Builder);
+#ifdef __SNUCL_COMPILER__
+  DefineTypeSizeof("__SIZEOF_HALF__", TI.getHalfWidth(), TI, Builder);
+#endif
   DefineTypeSizeof("__SIZEOF_INT__", TI.getIntWidth(), TI, Builder);
   DefineTypeSizeof("__SIZEOF_LONG__", TI.getLongWidth(), TI, Builder);
   DefineTypeSizeof("__SIZEOF_LONG_DOUBLE__",TI.getLongDoubleWidth(),TI,Builder);
@@ -403,6 +411,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   DefineType("__CHAR16_TYPE__", TI.getChar16Type(), Builder);
   DefineType("__CHAR32_TYPE__", TI.getChar32Type(), Builder);
 
+#ifdef __SNUCL_COMPILER__
+  DefineFloatMacros(Builder, "HALF", &TI.getHalfFormat());
+#endif
   DefineFloatMacros(Builder, "FLT", &TI.getFloatFormat());
   DefineFloatMacros(Builder, "DBL", &TI.getDoubleFormat());
   DefineFloatMacros(Builder, "LDBL", &TI.getLongDoubleFormat());

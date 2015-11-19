@@ -789,6 +789,10 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
                            // unary-expression: '__alignof' '(' type-name ')'
                            // unary-expression: 'alignof' '(' type-id ')'
     return ParseSizeofAlignofExpression();
+#ifdef __SNUCL_COMPILER__
+  case tok::kw_vec_step:
+    return ParseVecStepExpression();
+#endif
   case tok::ampamp: {      // unary-expression: '&&' identifier
     SourceLocation AmpAmpLoc = ConsumeToken();
     if (Tok.isNot(tok::identifier))
@@ -856,6 +860,13 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   case tok::kw_long:
   case tok::kw_signed:
   case tok::kw_unsigned:
+#ifdef __SNUCL_COMPILER__
+  case tok::kw_half:
+  case tok::kw_uchar:
+  case tok::kw_ushort:
+  case tok::kw_uint:
+  case tok::kw_ulong:
+#endif
   case tok::kw_float:
   case tok::kw_double:
   case tok::kw_void:
@@ -1344,6 +1355,59 @@ Parser::ParseExprAfterTypeofSizeofAlignof(const Token &OpTok,
   return move(Operand);
 }
 
+#ifdef __SNUCL_COMPILER__
+/// ParseExprAfterVecStep - We parsed a vec_step and we are at the start of 
+/// a parenthesized expression or a parenthesized type-id.
+/// OpTok is the operand token (vec_step). Returns the expression
+/// (isCastExpr == false) or the type (isCastExpr == true).
+///
+///       unary-expression:  [C99 6.5.3]
+/// [OpenCL 6.12.12] 'vec_step' '(' expression ')'
+/// [OpenCL 6.12.12] 'vec_step' '(' type-name ')'
+///
+ExprResult
+Parser::ParseExprAfterVecStep(const Token &OpTok,
+                                    bool &isCastExpr,
+                                    ParsedType &CastTy,
+                                    SourceRange &CastRange) {
+
+  assert(OpTok.is(tok::kw_vec_step) && "Not a vec_step expression!");
+
+  ExprResult Operand;
+
+  // If the operand doesn't start with an '(', it is an error.
+  if (Tok.isNot(tok::l_paren)) {
+    isCastExpr = false;
+    Diag(Tok,diag::err_expected_lparen_after_id) << OpTok.getIdentifierInfo();
+    return ExprError();
+  } 
+
+  // If it starts with a '(', we know that it is either a parenthesized
+  // type-name, or it is a unary-expression that starts with a compound
+  // literal, or starts with a primary-expression that is a parenthesized
+  // expression.
+  ParenParseOption ExprType = CastExpr;
+  SourceLocation LParenLoc = Tok.getLocation(), RParenLoc;
+
+  // The vec_step behaves as unevaluated operands.
+  EnterExpressionEvaluationContext Unevaluated(Actions, Sema::Unevaluated);
+  Operand = ParseParenExpression(ExprType, true/*stopIfCastExpr*/, 
+                                 ParsedType(), CastTy, RParenLoc);
+  CastRange = SourceRange(LParenLoc, RParenLoc);
+
+  // If ParseParenExpression parsed a '(typename)' sequence only, then this is
+  // a type.
+  if (ExprType == CastExpr) {
+    isCastExpr = true;
+    return ExprEmpty();
+  }
+
+  // If we get here, the operand to the vec_step was an expresion.
+  isCastExpr = false;
+  return move(Operand);
+}
+#endif
+
 
 /// ParseSizeofAlignofExpression - Parse a sizeof or alignof expression.
 ///       unary-expression:  [C99 6.5.3]
@@ -1423,6 +1487,39 @@ ExprResult Parser::ParseSizeofAlignofExpression() {
                                              Operand.release(), CastRange);
   return move(Operand);
 }
+
+#ifdef __SNUCL_COMPILER__
+/// ParseVecStepExpression - Parse a vec_step expression.
+///       unary-expression:  [C99 6.5.3]
+/// [OpenCL 6.12.12] 'vec_step' '(' expression ')'
+/// [OpenCL 6.12.12] 'vec_step' '(' type-name ')'
+ExprResult Parser::ParseVecStepExpression() {
+  assert(Tok.is(tok::kw_vec_step) && "Not a vec_step expression!");
+  Token OpTok = Tok;
+  ConsumeToken();
+
+  bool isCastExpr;
+  ParsedType CastTy;
+  SourceRange CastRange;
+  ExprResult Operand = ParseExprAfterVecStep(OpTok,
+                                             isCastExpr,
+                                             CastTy,
+                                             CastRange);
+
+  if (isCastExpr)
+    return Actions.ActOnVecStepExpr(OpTok.getLocation(),
+                                    /*isType=*/true,
+                                    CastTy.getAsOpaquePtr(),
+                                    CastRange);
+
+  // If we get here, the operand to the vec_step was an expresion.
+  if (!Operand.isInvalid())
+    Operand = Actions.ActOnVecStepExpr(OpTok.getLocation(),
+                                       /*isType=*/false,
+                                       Operand.release(), CastRange);
+  return move(Operand);
+}
+#endif
 
 /// ParseBuiltinPrimaryExpression
 ///

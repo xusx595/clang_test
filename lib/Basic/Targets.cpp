@@ -2368,12 +2368,19 @@ namespace {
       UIntMaxType = UnsignedLong;
       IntPtrType = SignedInt;
       PtrDiffType = SignedInt;
+#ifdef __SNUCL_COMPILER__
+      HalfWidth = 16;
+      HalfAlign = 16;
+#endif
       FloatWidth = 32;
       FloatAlign = 32;
       DoubleWidth = 32;
       DoubleAlign = 32;
       LongDoubleWidth = 32;
       LongDoubleAlign = 32;
+#ifdef __SNUCL_COMPILER__
+      HalfFormat = &llvm::APFloat::IEEEhalf;
+#endif
       FloatFormat = &llvm::APFloat::IEEEsingle;
       DoubleFormat = &llvm::APFloat::IEEEsingle;
       LongDoubleFormat = &llvm::APFloat::IEEEsingle;

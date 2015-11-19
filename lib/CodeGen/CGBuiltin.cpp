@@ -899,6 +899,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     return RValue::get(0);
   }
       
+#ifndef __SNUCL_COMPILER__
     // Library functions with special handling.
   case Builtin::BIsqrt:
   case Builtin::BIsqrtf:
@@ -923,6 +924,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     Value *F = CGM.getIntrinsic(Intrinsic::pow, &ArgType, 1);
     return RValue::get(Builder.CreateCall2(F, Base, Exponent, "tmp"));
   }
+#endif
 
   case Builtin::BI__builtin_signbit:
   case Builtin::BI__builtin_signbitf:

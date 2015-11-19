@@ -9,6 +9,6 @@
 
 CLANG_LEVEL := ..
 
-PARALLEL_DIRS := clang-interpreter PrintFunctionNames
+PARALLEL_DIRS := clang-interpreter PrintFunctionNames snuclc snuclc-merger
 
 include $(CLANG_LEVEL)/Makefile

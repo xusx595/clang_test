@@ -638,6 +638,9 @@ bool Sema::containsUnexpandedParameterPacks(Declarator &D) {
   case TST_char16:
   case TST_char32:
   case TST_int:
+#ifdef __SNUCL_COMPILER__
+  case TST_half:
+#endif
   case TST_float:
   case TST_double:
   case TST_bool:

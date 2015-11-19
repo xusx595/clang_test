@@ -694,6 +694,12 @@ void ExprEngine::Visit(const Stmt* S, ExplodedNode* Pred,
       VisitSizeOfAlignOfExpr(cast<SizeOfAlignOfExpr>(S), Pred, Dst);
       break;
 
+#ifdef __SNUCL_COMPILER__
+    case Stmt::VecStepExprClass:
+      // FIXME: VisitVecStepExpr(cast<VecStepExpr>(S), Pred, Dst);
+      break;
+#endif
+
     case Stmt::StmtExprClass: {
       const StmtExpr* SE = cast<StmtExpr>(S);
 

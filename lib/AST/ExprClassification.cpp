@@ -129,6 +129,9 @@ static Cl::Kinds ClassifyInternal(ASTContext &Ctx, const Expr *E) {
   case Expr::CXXBoolLiteralExprClass:
   case Expr::CXXPseudoDestructorExprClass:
   case Expr::SizeOfAlignOfExprClass:
+#ifdef __SNUCL_COMPILER__
+  case Expr::VecStepExprClass:
+#endif
   case Expr::CXXNewExprClass:
   case Expr::CXXThisExprClass:
   case Expr::CXXNullPtrLiteralExprClass:

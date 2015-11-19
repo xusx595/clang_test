@@ -2599,7 +2599,12 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok) {
     }
 
     bool isExact = (result == APFloat::opOK);
+#ifdef __SNUCL_COMPILER__
+    Res = FloatingLiteral::Create(Context, Val, isExact, Ty, Tok.getLocation(),
+                                  Literal.GetFloatValueAsString());
+#else
     Res = FloatingLiteral::Create(Context, Val, isExact, Ty, Tok.getLocation());
+#endif
 
     if (getLangOptions().SinglePrecisionConstants && Ty == Context.DoubleTy)
       ImpCastExprToType(Res, Context.FloatTy, CK_FloatingCast);
@@ -2853,6 +2858,77 @@ Sema::ActOnSizeOfAlignOfExpr(SourceLocation OpLoc, bool isSizeof, bool isType,
 
   return move(Result);
 }
+
+#ifdef __SNUCL_COMPILER__
+/// \brief Build a vec_step expression given a type operand.
+ExprResult
+Sema::CreateVecStepExpr(TypeSourceInfo *TInfo,
+                        SourceLocation OpLoc,
+                        SourceRange R) {
+  if (!TInfo)
+    return ExprError();
+
+  QualType T = TInfo->getType();
+
+  if (!T->isDependentType() &&
+      CheckSizeOfAlignOfOperand(T, OpLoc, R, true))
+    return ExprError();
+
+  // C99 6.5.3.4p4: the type (an unsigned integer type) is size_t.
+  return Owned(new (Context) VecStepExpr(TInfo,
+                                         Context.IntTy, OpLoc,
+                                         R.getEnd()));
+}
+
+/// \brief Build a vec_step expression given an expression
+/// operand.
+ExprResult
+Sema::CreateVecStepExpr(Expr *E, SourceLocation OpLoc, SourceRange R) {
+  // Verify that the operand is valid.
+  bool isInvalid = false;
+  if (E->isTypeDependent()) {
+    // Delay type-checking for type-dependent expressions.
+  } else if (E->getBitField()) {  // C99 6.5.3.4p1.
+    Diag(OpLoc, diag::err_sizeof_alignof_bitfield) << 0;
+    isInvalid = true;
+  } else if (E->getType()->isPlaceholderType()) {
+    ExprResult PE = CheckPlaceholderExpr(E, OpLoc);
+    if (PE.isInvalid()) return ExprError();
+    return CreateVecStepExpr(PE.take(), OpLoc, R);
+  } else {
+    isInvalid = CheckSizeOfAlignOfOperand(E->getType(), OpLoc, R, true);
+  }
+
+  if (isInvalid)
+    return ExprError();
+
+  // C99 6.5.3.4p4: the type (an unsigned integer type) is size_t.
+  return Owned(new (Context) VecStepExpr(E,
+                                         Context.IntTy, OpLoc,
+                                         R.getEnd()));
+}
+
+/// ActOnVecStepExpr - Handle @c vec_type(type)
+/// Note that the ArgRange is invalid if isType is false.
+ExprResult
+Sema::ActOnVecStepExpr(SourceLocation OpLoc, bool isType,
+                       void *TyOrEx, const SourceRange &ArgRange) {
+  // If error parsing type, ignore.
+  if (TyOrEx == 0) return ExprError();
+
+  if (isType) {
+    TypeSourceInfo *TInfo;
+    (void) GetTypeFromParser(ParsedType::getFromOpaquePtr(TyOrEx), &TInfo);
+    return CreateVecStepExpr(TInfo, OpLoc, ArgRange);
+  }
+
+  Expr *ArgEx = (Expr *)TyOrEx;
+  ExprResult Result
+    = CreateVecStepExpr(ArgEx, OpLoc, ArgEx->getSourceRange());
+
+  return move(Result);
+}
+#endif
 
 static QualType CheckRealImagOperand(Sema &S, Expr *&V, SourceLocation Loc,
                                      bool isReal) {
@@ -5098,6 +5174,19 @@ bool Sema::CheckExtVectorCast(SourceRange R, QualType DestTy, Expr *&CastExpr,
   // If SrcTy is a VectorType, the total size must match to explicitly cast to
   // an ExtVectorType.
   if (SrcTy->isVectorType()) {
+#ifdef __SNUCL_COMPILER__
+    if (getLangOptions().OpenCL) {
+      const ExtVectorType *CastTy = DestTy->getAs<ExtVectorType>();
+      const ExtVectorType *ExprTy = SrcTy->getAs<ExtVectorType>();
+      if ((CastTy->getElementType() != ExprTy->getElementType()) ||
+          (CastTy->getNumElements() != ExprTy->getNumElements())) {
+        return Diag(R.getBegin(),
+                    diag::err_invalid_conversion_between_vector_and_vector)
+          << DestTy << SrcTy << R;
+      }
+    }
+#endif
+
     if (Context.getTypeSize(DestTy) != Context.getTypeSize(SrcTy))
       return Diag(R.getBegin(),diag::err_invalid_conversion_between_ext_vectors)
         << DestTy << SrcTy << R;
@@ -5304,9 +5393,15 @@ QualType Sema::CheckConditionalOperands(Expr *&Cond, Expr *&LHS, Expr *&RHS,
   VK = VK_RValue;
   OK = OK_Ordinary;
 
+#ifdef __SNUCL_COMPILER__
+  if (!getLangOptions().OpenCL) {
+#endif
   UsualUnaryConversions(Cond);
   UsualUnaryConversions(LHS);
   UsualUnaryConversions(RHS);
+#ifdef __SNUCL_COMPILER__
+  }
+#endif
   QualType CondTy = Cond->getType();
   QualType LHSTy = LHS->getType();
   QualType RHSTy = RHS->getType();
@@ -5354,6 +5449,14 @@ QualType Sema::CheckConditionalOperands(Expr *&Cond, Expr *&LHS, Expr *&RHS,
     ImpCastExprToType(RHS, CondTy, CK_IntegralCast);
   }
   
+#ifdef __SNUCL_COMPILER__
+  if (getLangOptions().OpenCL) {
+    UsualUnaryConversions(Cond);
+    UsualUnaryConversions(LHS);
+    UsualUnaryConversions(RHS);
+  }
+#endif
+
   // If both operands have arithmetic type, do the usual arithmetic conversions
   // to find a common type: C99 6.5.15p3,5.
   if (LHSTy->isArithmeticType() && RHSTy->isArithmeticType()) {
@@ -6289,6 +6392,9 @@ QualType Sema::CheckVectorOperands(SourceLocation Loc, Expr *&lex, Expr *&rex) {
   if (lhsType == rhsType)
     return lhsType;
 
+#ifdef __SNUCL_COMPILER__
+  if (!getLangOptions().OpenCL) {
+#endif
   // Handle the case of a vector & extvector type of the same size and element
   // type.  It would be nice if we only had one vector type someday.
   if (getLangOptions().LaxVectorConversions) {
@@ -6320,6 +6426,9 @@ QualType Sema::CheckVectorOperands(SourceLocation Loc, Expr *&lex, Expr *&rex) {
     ImpCastExprToType(lex, rhsType, CK_BitCast);
     return rhsType;
   }
+#ifdef __SNUCL_COMPILER__
+  }
+#endif
 
   // Canonicalize the ExtVector to the LHS, remember if we swapped so we can
   // swap back (so that we don't reverse the inputs to a subtract, for instance.
@@ -6354,7 +6463,18 @@ QualType Sema::CheckVectorOperands(SourceLocation Loc, Expr *&lex, Expr *&rex) {
         return lhsType;
       }
     }
+#ifdef __SNUCL_COMPILER__
+    if (EltTy->isRealFloatingType() && rhsType->isIntegerType()) {
+      ImpCastExprToType(rex, lhsType, CK_VectorSplat);
+      if (swapped) std::swap(rex, lex);
+      return lhsType;
+    }
+#endif
   }
+
+#ifdef __SNUCL_COMPILER__
+  if (swapped) std::swap(rex, lex);
+#endif
 
   // Vectors of different size or scalar and non-ext-vector are errors.
   Diag(Loc, diag::err_typecheck_vector_not_convertable)
@@ -7154,8 +7274,13 @@ QualType Sema::CheckVectorCompareOperands(Expr *&lex, Expr *&rex,
 
   // If AltiVec, the comparison results in a numeric type, i.e.
   // bool for C++, int for C
+#ifdef __SNUCL_COMPILER__
+  if (!getLangOptions().OpenCL && getLangOptions().AltiVec)
+    return Context.getLogicalOperationType();
+#else
   if (getLangOptions().AltiVec)
     return Context.getLogicalOperationType();
+#endif
 
   QualType lType = lex->getType();
   QualType rType = rex->getType();
@@ -7179,6 +7304,32 @@ QualType Sema::CheckVectorCompareOperands(Expr *&lex, Expr *&rex,
     assert (rType->hasFloatingRepresentation());
     CheckFloatComparison(Loc,lex,rex);
   }
+
+#ifdef __SNUCL_COMPILER__
+  if (getLangOptions().OpenCL) {
+    const VectorType *VTy;
+    if (lType->isExtVectorType())
+      VTy = lType->getAs<VectorType>();
+    else
+      VTy = rType->getAs<VectorType>();
+
+    unsigned TypeSize = Context.getTypeSize(VTy->getElementType());
+    if (TypeSize == Context.getTypeSize(Context.CharTy))
+      return Context.getExtVectorType(Context.CharTy, VTy->getNumElements());
+    if (TypeSize == Context.getTypeSize(Context.ShortTy))
+      return Context.getExtVectorType(Context.ShortTy, VTy->getNumElements());
+    if (TypeSize == Context.getTypeSize(Context.IntTy) ||
+        TypeSize == Context.getTypeSize(Context.FloatTy))
+      return Context.getExtVectorType(Context.IntTy, VTy->getNumElements());
+    if (TypeSize == Context.getTypeSize(Context.LongTy) ||
+        TypeSize == Context.getTypeSize(Context.DoubleTy))
+      return Context.getExtVectorType(Context.LongTy, VTy->getNumElements());
+
+    assert(TypeSize == Context.getTypeSize(Context.LongLongTy) &&
+           "Unhandled vector element size in vector compare");
+    return Context.getExtVectorType(Context.LongLongTy, VTy->getNumElements());
+  }
+#endif
 
   // Return the type for the comparison, which is the same as vector type for
   // integer vectors, or an integer type of identical size and number of
@@ -7240,6 +7391,24 @@ inline QualType Sema::CheckLogicalOperands( // C99 6.5.[13,14]
   }
   
   if (!Context.getLangOptions().CPlusPlus) {
+#ifdef __SNUCL_COMPILER__
+    if (Context.getLangOptions().OpenCL) {
+      QualType lexTy = lex->getType();
+      QualType rexTy = rex->getType();
+      
+      if (lexTy->isExtVectorType() || rexTy->isExtVectorType()) {
+        return CheckVectorCompareOperands(lex, rex, Loc, false);
+      }
+
+      UsualUnaryConversions(lex);
+      UsualUnaryConversions(rex);
+
+      if (lexTy->isScalarType() && rexTy->isScalarType())
+        return Context.IntTy;
+
+      return InvalidOperands(Loc, lex, rex);
+    } else {
+#endif
     UsualUnaryConversions(lex);
     UsualUnaryConversions(rex);
 
@@ -7247,6 +7416,9 @@ inline QualType Sema::CheckLogicalOperands( // C99 6.5.[13,14]
       return InvalidOperands(Loc, lex, rex);
 
     return Context.IntTy;
+#ifdef __SNUCL_COMPILER__
+    }
+#endif
   }
 
   // The following is safe because we only use this method for
@@ -7264,6 +7436,29 @@ inline QualType Sema::CheckLogicalOperands( // C99 6.5.[13,14]
   // The result is a bool.
   return Context.BoolTy;
 }
+
+#ifdef __SNUCL_COMPILER__
+QualType Sema::CheckVectorLNotOperand(Expr *&op, SourceLocation OpLoc) {
+  QualType opType = op->getType();
+  const VectorType *VTy = opType->getAs<VectorType>();
+  unsigned TypeSize = Context.getTypeSize(VTy->getElementType());
+
+  if (TypeSize == Context.getTypeSize(Context.CharTy))
+    return Context.getExtVectorType(Context.CharTy, VTy->getNumElements());
+  if (TypeSize == Context.getTypeSize(Context.ShortTy))
+    return Context.getExtVectorType(Context.ShortTy, VTy->getNumElements());
+  if (TypeSize == Context.getTypeSize(Context.IntTy) ||
+      TypeSize == Context.getTypeSize(Context.FloatTy))
+    return Context.getExtVectorType(Context.IntTy, VTy->getNumElements());
+  if (TypeSize == Context.getTypeSize(Context.LongTy) ||
+      TypeSize == Context.getTypeSize(Context.DoubleTy))
+    return Context.getExtVectorType(Context.LongTy, VTy->getNumElements());
+
+  assert(TypeSize == Context.getTypeSize(Context.LongLongTy) &&
+         "Unhandled vector element size in vector compare");
+  return Context.getExtVectorType(Context.LongLongTy, VTy->getNumElements());
+}
+#endif
 
 /// IsReadonlyProperty - Verify that otherwise a valid l-value expression
 /// is a read-only property; return true if so. A readonly property expression
@@ -8394,6 +8589,12 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
     resultType = Input->getType();
     if (resultType->isDependentType())
       break;
+#ifdef __SNUCL_COMPILER__
+    if (getLangOptions().OpenCL && resultType->isExtVectorType()) {
+      resultType = CheckVectorLNotOperand(Input, OpLoc);
+      break;
+    }
+#endif
     if (resultType->isScalarType()) { // C99 6.5.3.3p1
       // ok, fallthrough
     } else if (resultType->isPlaceholderType()) {
@@ -9073,6 +9274,9 @@ bool Sema::DiagnoseAssignmentResult(AssignConvertType ConvTy,
   default: assert(0 && "Unknown conversion type");
   case Compatible: return false;
   case PointerToInt:
+#ifdef __SNUCL_COMPILER__
+    return isInvalid;
+#endif
     DiagKind = diag::ext_typecheck_convert_pointer_int;
     break;
   case IntToPointer:

@@ -618,6 +618,9 @@ Parser::isExpressionOrTypeSpecifierSimple(tok::TokenKind Kind) {
   case tok::tilde:
   case tok::exclaim:
   case tok::kw_sizeof:
+#ifdef __SNUCL_COMPILER__
+  case tok::kw_vec_step:
+#endif
   case tok::kw___func__:
   case tok::kw_const_cast:
   case tok::kw_delete:
@@ -670,6 +673,13 @@ Parser::isExpressionOrTypeSpecifierSimple(tok::TokenKind Kind) {
   case tok::kw_const:
   case tok::kw_double:
   case tok::kw_enum:
+#ifdef __SNUCL_COMPILER__
+  case tok::kw_half:
+  case tok::kw_uchar:
+  case tok::kw_ushort:
+  case tok::kw_uint:
+  case tok::kw_ulong:
+#endif
   case tok::kw_float:
   case tok::kw_int:
   case tok::kw_long:

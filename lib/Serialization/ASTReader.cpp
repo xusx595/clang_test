@@ -3616,6 +3616,9 @@ QualType ASTReader::GetType(TypeID ID) {
     case PREDEF_TYPE_OBJC_ID:       T = Context->ObjCBuiltinIdTy;    break;
     case PREDEF_TYPE_OBJC_CLASS:    T = Context->ObjCBuiltinClassTy; break;
     case PREDEF_TYPE_OBJC_SEL:      T = Context->ObjCBuiltinSelTy;   break;
+#ifdef __SNUCL_COMPILER__
+    case PREDEF_TYPE_HALF_ID:       T = Context->HalfTy;             break;
+#endif
     }
 
     assert(!T.isNull() && "Unknown predefined type");

@@ -120,8 +120,15 @@ protected:
 
     /// \brief The statement class.
     unsigned sClass : 8;
+#ifdef __SNUCL_COMPILER__
+    bool HasBarrier : 1;
+#endif
   };
+#ifdef __SNUCL_COMPILER__
+  enum { NumStmtBits = 9 };
+#else
   enum { NumStmtBits = 8 };
+#endif
 
   class CompoundStmtBitfields {
     friend class CompoundStmt;
@@ -156,7 +163,11 @@ protected:
     unsigned ValueDependent : 1;
     unsigned ContainsUnexpandedParameterPack : 1;
   };
+#ifdef __SNUCL_COMPILER__
+  enum { NumExprBits = 16 };
+#else
   enum { NumExprBits = 15 };
+#endif
 
   class CastExprBitfields {
     friend class CastExpr;
@@ -218,19 +229,35 @@ protected:
   /// \brief Construct an empty statement.
   explicit Stmt(StmtClass SC, EmptyShell) {
     StmtBits.sClass = SC;
+#ifdef __SNUCL_COMPILER__
+    StmtBits.HasBarrier = false;
+#endif
     if (Stmt::CollectingStats()) Stmt::addStmtClass(SC);
   }
 
 public:
+#ifdef __SNUCL_COMPILER__
+  Stmt(StmtClass SC, bool HasBar=false) {
+    StmtBits.sClass = SC;
+    StmtBits.HasBarrier = HasBar;
+    if (Stmt::CollectingStats()) Stmt::addStmtClass(SC);
+  }
+#else
   Stmt(StmtClass SC) {
     StmtBits.sClass = SC;
     if (Stmt::CollectingStats()) Stmt::addStmtClass(SC);
   }
+#endif
 
   StmtClass getStmtClass() const { 
     return static_cast<StmtClass>(StmtBits.sClass);
   }
   const char *getStmtClassName() const;
+
+#ifdef __SNUCL_COMPILER__
+  bool hasBarrier()          { return StmtBits.HasBarrier; }
+  void setBarrier(bool B)    { StmtBits.HasBarrier = B; }
+#endif
 
   /// SourceLocation tokens are not useful in isolation - they are low level
   /// value objects created/interpreted by SourceManager. We assume AST
@@ -419,11 +446,19 @@ public:
 class CompoundStmt : public Stmt {
   Stmt** Body;
   SourceLocation LBracLoc, RBracLoc;
+#ifdef __SNUCL_COMPILER__
+  bool IsStmtList;  // For splitting a normal stmt
+  int  WCR_ID;      // For marking a WCR (Work-item Coalescing Region)
+#endif
 public:
   CompoundStmt(ASTContext& C, Stmt **StmtStart, unsigned NumStmts,
                SourceLocation LB, SourceLocation RB)
   : Stmt(CompoundStmtClass), LBracLoc(LB), RBracLoc(RB) {
     CompoundStmtBits.NumStmts = NumStmts;
+#ifdef __SNUCL_COMPILER__
+    IsStmtList = false;
+    WCR_ID = -1;
+#endif
 
     if (NumStmts == 0) {
       Body = 0;
@@ -438,12 +473,25 @@ public:
   explicit CompoundStmt(EmptyShell Empty)
     : Stmt(CompoundStmtClass, Empty), Body(0) {
     CompoundStmtBits.NumStmts = 0;
+#ifdef __SNUCL_COMPILER__
+    IsStmtList = false;
+    WCR_ID = -1;
+#endif
   }
 
   void setStmts(ASTContext &C, Stmt **Stmts, unsigned NumStmts);
 
   bool body_empty() const { return CompoundStmtBits.NumStmts == 0; }
   unsigned size() const { return CompoundStmtBits.NumStmts; }
+
+#ifdef __SNUCL_COMPILER__
+  bool isStmtList()          { return IsStmtList; }
+  void setIsStmtList(bool B) { IsStmtList = B; }
+
+  bool isWCR()        { return WCR_ID >= 0; }
+  void setWCR(int ID) { WCR_ID = ID; }
+  int  getWCRID()     { return WCR_ID; }
+#endif
 
   typedef Stmt** body_iterator;
   body_iterator body_begin() { return Body; }
@@ -672,6 +720,12 @@ class IfStmt : public Stmt {
 
   SourceLocation IfLoc;
   SourceLocation ElseLoc;
+
+#ifdef __SNUCL_COMPILER__
+  bool BarInThen;
+  bool BarInElse;
+  unsigned CntBarrier;
+#endif
   
 public:
   IfStmt(ASTContext &C, SourceLocation IL, VarDecl *var, Expr *cond, 
@@ -701,6 +755,16 @@ public:
   Expr *getCond() { return reinterpret_cast<Expr*>(SubExprs[COND]); }
   Stmt *getThen() { return SubExprs[THEN]; }
   Stmt *getElse() { return SubExprs[ELSE]; }
+
+#ifdef __SNUCL_COMPILER__
+  bool hasBarrierInside()    { return BarInThen || BarInElse; }
+  bool hasBarInThen()        { return BarInThen; }
+  bool hasBarInElse()        { return BarInElse; }
+  void setBarInThen(bool ex) { BarInThen = ex; }
+  void setBarInElse(bool ex) { BarInElse = ex; }
+  unsigned getCntBarrier()   { return CntBarrier; }
+  void setCntBarrier(unsigned cnt) { CntBarrier = cnt; }
+#endif
 
   SourceLocation getIfLoc() const { return IfLoc; }
   void setIfLoc(SourceLocation L) { IfLoc = L; }

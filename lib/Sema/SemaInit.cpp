@@ -938,7 +938,11 @@ void InitListChecker::CheckVectorType(const InitializedEntity &Entity,
   }
 
   // OpenCL requires all elements to be initialized.
+#ifdef __SNUCL_COMPILER__
+  if (numEltsInit != maxElements && numEltsInit != 1)
+#else
   if (numEltsInit != maxElements)
+#endif
     if (SemaRef.getLangOptions().OpenCL)
       SemaRef.Diag(IList->getSourceRange().getBegin(),
                    diag::err_vector_incorrect_num_initializers)

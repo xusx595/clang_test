@@ -3355,6 +3355,16 @@ void Sema::CheckShadow(Scope *S, VarDecl *D) {
   CheckShadow(S, D, R);
 }
 
+#ifdef __SNUCL_COMPILER__
+static QualType GetBasePointeeType(const PointerType *PT) {
+  QualType BT = PT->getPointeeType();
+  if (const PointerType *NPT = BT->getAs<PointerType>()) {
+    return GetBasePointeeType(NPT);
+  }
+  return BT;
+}
+#endif
+
 /// \brief Perform semantic checking on a newly-created variable
 /// declaration.
 ///
@@ -3378,6 +3388,60 @@ void Sema::CheckVariableDeclaration(VarDecl *NewVD,
     Diag(NewVD->getLocation(), diag::err_statically_allocated_object);
     return NewVD->setInvalidDecl();
   }
+
+#ifdef __SNUCL_COMPILER__
+  if (getLangOptions().OpenCL) {
+    AddrQualifier AQ = NewVD->getAddrQualifier();
+    if (AQ == AQ_Global) {
+      if (!T->isPointerType()) {
+        bool InvalidAQ = true;
+        if (const ArrayType *AT = dyn_cast<ArrayType>(T)) {
+          const Type *BaseElemType = AT->getBaseElementTypeUnsafe();
+          InvalidAQ = !BaseElemType->isPointerType();
+        }
+        
+        if (InvalidAQ) {
+          Diag(NewVD->getLocation(), diag::err_invalid_global_qualifier);
+          return NewVD->setInvalidDecl();
+        }
+      }
+    } else if (AQ == AQ_Constant) {
+      if (!NewVD->hasGlobalStorage() && !T->isPointerType()) {
+        bool InvalidAQ = true;
+        if (const ArrayType *AT = dyn_cast<ArrayType>(T)) {
+          const Type *BaseElemType = AT->getBaseElementTypeUnsafe();
+          InvalidAQ = !BaseElemType->isPointerType();
+        }
+        
+        if (InvalidAQ) {
+          Diag(NewVD->getLocation(), diag::err_invalid_constant_qualifier);
+          return NewVD->setInvalidDecl();
+        }
+      }
+    } else if (AQ == AQ_Private) {
+      // In OpenCL, the half type can olny be used to declare a pointer to a 
+      // buffer that contains half values. Therefore, below are some examples
+      // that are not valid usage of the half type:
+      //   half a;
+      //   half a[100];
+      bool InvalidHalfType = false;
+      if (T->isHalfType()) {
+        InvalidHalfType = true;
+      } else if (const ArrayType *AT = T->getAsArrayTypeUnsafe()) {
+        const Type *BaseElemType = AT->getBaseElementTypeUnsafe();
+        if (const PointerType *PT = BaseElemType->getAs<PointerType>()) {
+          BaseElemType = GetBasePointeeType(PT).getTypePtr();
+        }
+        if (BaseElemType->isHalfType()) InvalidHalfType = true;
+      }
+
+      if (InvalidHalfType) {
+        Diag(NewVD->getLocation(), diag::err_invalid_half_type);
+        return NewVD->setInvalidDecl();
+      }
+    }
+  }
+#endif
 
   // Emit an error if an address space was applied to decl with local storage.
   // This includes arrays of objects with address space qualifiers, but not
@@ -4276,6 +4340,16 @@ Sema::ActOnFunctionDeclarator(Scope* S, Declarator& D, DeclContext* DC,
           Context.setcudaConfigureCallDecl(NewFD);
         }
       }
+
+#ifdef __SNUCL_COMPILER__
+  if (getLangOptions().OpenCL && NewFD->hasAttr<OpenCLKernelAttr>()) {
+    // Kernel function must have 'void' return type.
+    if (D.getDeclSpec().getTypeSpecType() != DeclSpec::TST_void) {
+      Diag(D.getDeclSpec().getTypeSpecTypeLoc(), 
+           diag::err_expected_void_return_type);
+    }
+  }
+#endif
 
   return NewFD;
 }

@@ -665,6 +665,9 @@ static QualType ConvertDeclSpecToType(Sema &S, TypeProcessingState &state) {
     }
     break;
   }
+#ifdef __SNUCL_COMPILER__
+  case DeclSpec::TST_half: Result = Context.HalfTy; break;
+#endif
   case DeclSpec::TST_float: Result = Context.FloatTy; break;
   case DeclSpec::TST_double:
     if (DS.getTypeSpecWidth() == DeclSpec::TSW_long)
@@ -672,10 +675,16 @@ static QualType ConvertDeclSpecToType(Sema &S, TypeProcessingState &state) {
     else
       Result = Context.DoubleTy;
 
+#ifdef __SNUCL_COMPILER__
+    if (S.getLangOptions().OpenCL && !S.getOpenCLOptions().cl_khr_fp64) {
+      S.Diag(DS.getTypeSpecTypeLoc(), diag::warn_double_requires_fp64);
+    }
+#else
     if (S.getLangOptions().OpenCL && !S.getOpenCLOptions().cl_khr_fp64) {
       S.Diag(DS.getTypeSpecTypeLoc(), diag::err_double_requires_fp64);
       declarator.setInvalidType(true);
     }
+#endif
     break;
   case DeclSpec::TST_bool: Result = Context.BoolTy; break; // _Bool or bool
   case DeclSpec::TST_decimal32:    // _Decimal32
@@ -2546,7 +2555,6 @@ TypeResult Sema::ActOnTypeName(Scope *S, Declarator &D) {
 
   return CreateParsedType(T, TInfo);
 }
-
 
 
 //===----------------------------------------------------------------------===//

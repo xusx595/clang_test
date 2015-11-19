@@ -561,6 +561,10 @@ void USRGenerator::VisitType(QualType T) {
           c = 'K'; break;
         case BuiltinType::Int128:
           c = 'J'; break;
+#ifdef __SNUCL_COMPILER__
+        case BuiltinType::Half:
+          c = 'h'; break;
+#endif
         case BuiltinType::Float:
           c = 'f'; break;
         case BuiltinType::Double:

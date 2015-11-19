@@ -42,18 +42,22 @@ namespace {
 }
 
 static void AppendTypeQualList(std::string &S, unsigned TypeQuals) {
+#ifndef __SNUCL_COMPILER__
   if (TypeQuals & Qualifiers::Const) {
     if (!S.empty()) S += ' ';
     S += "const";
   }
+#endif
   if (TypeQuals & Qualifiers::Volatile) {
     if (!S.empty()) S += ' ';
     S += "volatile";
   }
+#ifndef __SNUCL_COMPILER__
   if (TypeQuals & Qualifiers::Restrict) {
     if (!S.empty()) S += ' ';
     S += "restrict";
   }
+#endif
 }
 
 void TypePrinter::print(QualType t, std::string &buffer) {
@@ -140,10 +144,18 @@ void TypePrinter::print(const Type *T, Qualifiers Quals, std::string &buffer) {
     std::string qualsBuffer;
     Quals.getAsStringInternal(qualsBuffer, Policy);
     
+#ifdef __SNUCL_COMPILER__
+    if (!buffer.empty()) {
+      if (!qualsBuffer.empty())
+        qualsBuffer += ' ';
+      qualsBuffer += buffer;
+    }
+#else
     if (!buffer.empty()) {
       qualsBuffer += ' ';
       qualsBuffer += buffer;
     }
+#endif
     std::swap(buffer, qualsBuffer);
   }
   
@@ -160,10 +172,18 @@ void TypePrinter::print(const Type *T, Qualifiers Quals, std::string &buffer) {
     std::string qualsBuffer;
     Quals.getAsStringInternal(qualsBuffer, Policy);
     
+#ifdef __SNUCL_COMPILER__
+    if (!buffer.empty()) {
+      if (!qualsBuffer.empty())
+        qualsBuffer += ' ';
+      qualsBuffer += buffer;
+    }
+#else
     if (!buffer.empty()) {
       qualsBuffer += ' ';
       qualsBuffer += buffer;
     }
+#endif
     std::swap(buffer, qualsBuffer);
   }
 }
@@ -173,7 +193,12 @@ void TypePrinter::printBuiltin(const BuiltinType *T, std::string &S) {
     S = T->getName(Policy.LangOpts);
   } else {
     // Prefix the basic type, e.g. 'int X'.
+#ifdef __SNUCL_COMPILER__
+    if (S[0] != '*')
+      S = ' ' + S;
+#else
     S = ' ' + S;
+#endif
     S = T->getName(Policy.LangOpts) + S;
   }
 }
@@ -184,6 +209,10 @@ void TypePrinter::printComplex(const ComplexType *T, std::string &S) {
 }
 
 void TypePrinter::printPointer(const PointerType *T, std::string &S) { 
+#ifdef __SNUCL_COMPILER__
+  if (!S.empty() && S[0] != '*')
+    S = ' ' + S;
+#endif
   S = '*' + S;
   
   // Handle things like 'int (*A)[4];' correctly.
@@ -457,8 +486,17 @@ static void printTypeSpec(const NamedDecl *D, std::string &S) {
   IdentifierInfo *II = D->getIdentifier();
   if (S.empty())
     S = II->getName().str();
+#ifdef __SNUCL_COMPILER__
+  else {
+    if (S[0] == '*')
+      S = II->getName().str() + S;
+    else
+      S = II->getName().str() + ' ' + S;
+  }
+#else
   else
     S = II->getName().str() + ' ' + S;
+#endif
 }
 
 void TypePrinter::printUnresolvedUsing(const UnresolvedUsingType *T,
@@ -613,7 +651,12 @@ void TypePrinter::printTag(TagDecl *D, std::string &InnerString) {
   }
 
   if (!InnerString.empty()) {
+#ifdef __SNUCL_COMPILER__
+    if (InnerString[0] != '*')
+      Buffer += ' ';
+#else
     Buffer += ' ';
+#endif
     Buffer += InnerString;
   }
 
@@ -697,8 +740,17 @@ void TypePrinter::printElaborated(const ElaboratedType *T, std::string &S) {
   MyString += TypeStr;
   if (S.empty())
     S.swap(MyString);
+#ifdef __SNUCL_COMPILER__
+  else {
+    if (S[0] == '*')
+      S = MyString + S;  
+    else
+      S = MyString + ' ' + S;  
+  }
+#else
   else
     S = MyString + ' ' + S;  
+#endif
 }
 
 void TypePrinter::printParen(const ParenType *T, std::string &S) {
@@ -723,8 +775,17 @@ void TypePrinter::printDependentName(const DependentNameType *T, std::string &S)
   
   if (S.empty())
     S.swap(MyString);
+#ifdef __SNUCL_COMPILER__
+  else {
+    if (S[0] == '*')
+      S = MyString + S;  
+    else
+      S = MyString + ' ' + S;  
+  }
+#else
   else
     S = MyString + ' ' + S;
+#endif
 }
 
 void TypePrinter::printDependentTemplateSpecialization(

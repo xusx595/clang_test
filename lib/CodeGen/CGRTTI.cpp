@@ -185,6 +185,9 @@ static bool TypeInfoIsInStandardLibrary(const BuiltinType *Ty) {
     case BuiltinType::ULong:
     case BuiltinType::LongLong:
     case BuiltinType::ULongLong:
+#ifdef __SNUCL_COMPILER__
+    case BuiltinType::Half:
+#endif
     case BuiltinType::Float:
     case BuiltinType::Double:
     case BuiltinType::LongDouble:

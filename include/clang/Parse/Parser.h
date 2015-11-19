@@ -150,6 +150,10 @@ class Parser : public CodeCompletionHandler {
   /// Factory object for creating AttributeList objects.
   AttributeList::Factory AttrFactory;
 
+#ifdef __SNUCL_COMPILER__
+  bool InOpenCLKernelFunction;
+#endif
+
 public:
   Parser(Preprocessor &PP, Sema &Actions);
   ~Parser();
@@ -1036,12 +1040,21 @@ private:
 
   ExprResult ParsePostfixExpressionSuffix(ExprResult LHS);
   ExprResult ParseSizeofAlignofExpression();
+#ifdef __SNUCL_COMPILER__
+  ExprResult ParseVecStepExpression();
+#endif
   ExprResult ParseBuiltinPrimaryExpression();
 
   ExprResult ParseExprAfterTypeofSizeofAlignof(const Token &OpTok,
                                                      bool &isCastExpr,
                                                      ParsedType &CastTy,
                                                      SourceRange &CastRange);
+#ifdef __SNUCL_COMPILER__
+  ExprResult ParseExprAfterVecStep(const Token &OpTok,
+                                         bool &isCastExpr,
+                                         ParsedType &CastTy,
+                                         SourceRange &CastRange);
+#endif
 
   typedef llvm::SmallVector<Expr*, 20> ExprListTy;
   typedef llvm::SmallVector<SourceLocation, 20> CommaLocsTy;

@@ -3810,6 +3810,34 @@ def err_sizeof_pack_no_pack_name_suggest : Error<
   "%0 does not refer to the name of a parameter pack; did you mean %1?">;
 def note_parameter_pack_here : Note<"parameter pack %0 declared here">;
 
+// __SNUCL_COMPILER__
+def err_invalid_global_qualifier : Error<
+  "invalid usage of __global qualifer">;
+def err_invalid_constant_qualifier : Error<
+  "invalid usage of __constant qualifer">;
+def err_invalid_local_qualifier : Error<
+  "invalid usage of __local qualifer">;
+def err_invalid_half_type : Error<
+  "half type can only be used to declare a pointer to a buffer containing half values">;
+def err_typecheck_vector_operation : Error<
+  "operation of vector types (%0 and %1) not supported">;
+def err_typecheck_vector_unary_operation : Error<
+  "unary operation of vector type (%0) not supported">;
+def err_illegal_initializer_number : Error<
+  "illegal number of literal values for vector type %0">;
+def err_incompatible_literal_value_type : Error<
+  "%0 is incompatible type for initializing %1">;
+def err_invalid_conversion_between_vector_and_vector: Error<
+  "invalid conversion between vector type %0 and vector type %1">;
+def err_expected_void_return_type : Error<
+  "expected 'void' as return type of __kernel function">;
+def err_attribute_vec_type_hint: Error<
+  "wrong type name (%0)">;
+def err_attribute_endian: Error<
+  "wrong endiantype (%0)">;
+def warn_double_requires_fp64 : Warning<
+  "cl_khr_fp64 extension is currently disabled">;
+
 } // end of sema category
 } // end of sema component.
 

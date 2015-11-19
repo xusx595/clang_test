@@ -297,6 +297,14 @@ void StmtProfiler::VisitSizeOfAlignOfExpr(SizeOfAlignOfExpr *S) {
     VisitType(S->getArgumentType());
 }
 
+#ifdef __SNUCL_COMPILER__
+void StmtProfiler::VisitVecStepExpr(VecStepExpr *S) {
+  VisitExpr(S);
+  if (S->isArgumentType())
+    VisitType(S->getArgumentType());
+}
+#endif
+
 void StmtProfiler::VisitArraySubscriptExpr(ArraySubscriptExpr *S) {
   VisitExpr(S);
 }

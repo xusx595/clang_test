@@ -234,6 +234,9 @@ public:
   static const TST TST_char16 = clang::TST_char16;
   static const TST TST_char32 = clang::TST_char32;
   static const TST TST_int = clang::TST_int;
+#ifdef __SNUCL_COMPILER__
+  static const TST TST_half = clang::TST_half;
+#endif
   static const TST TST_float = clang::TST_float;
   static const TST TST_double = clang::TST_double;
   static const TST TST_bool = clang::TST_bool;

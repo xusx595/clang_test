@@ -491,6 +491,11 @@ namespace clang {
       PREDEF_TYPE_OBJC_CLASS    = 27,
       /// \brief The ObjC 'SEL' type.
       PREDEF_TYPE_OBJC_SEL    = 28
+#ifdef __SNUCL_COMPILER__
+      ,
+      /// \brief The 'half' type.
+      PREDEF_TYPE_HALF_ID       = 29
+#endif
     };
 
     /// \brief The number of predefined type IDs that are reserved for

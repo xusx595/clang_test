@@ -487,6 +487,15 @@ IntegerLiteral::Create(ASTContext &C, EmptyShell Empty) {
   return new (C) IntegerLiteral(Empty);
 }
 
+#ifdef __SNUCL_COMPILER__
+FloatingLiteral *
+FloatingLiteral::Create(ASTContext &C, const llvm::APFloat &V,
+                        bool isexact, QualType Type, SourceLocation L,
+                        std::string VStr) {
+  return new (C) FloatingLiteral(C, V, isexact, Type, L, VStr);
+}
+#endif
+
 FloatingLiteral *
 FloatingLiteral::Create(ASTContext &C, const llvm::APFloat &V,
                         bool isexact, QualType Type, SourceLocation L) {
@@ -698,6 +707,12 @@ CallExpr::CallExpr(ASTContext& C, StmtClass SC, Expr *fn, unsigned NumPreArgs,
 
   CallExprBits.NumPreArgs = NumPreArgs;
   RParenLoc = rparenloc;
+
+#ifdef __SNUCL_COMPILER__
+  ReturnExpr = 0;
+  IsTransformed = false;
+  NextStmt = 0;
+#endif
 }
 
 CallExpr::CallExpr(ASTContext& C, Expr *fn, Expr **args, unsigned numargs,
@@ -723,6 +738,12 @@ CallExpr::CallExpr(ASTContext& C, Expr *fn, Expr **args, unsigned numargs,
 
   CallExprBits.NumPreArgs = 0;
   RParenLoc = rparenloc;
+
+#ifdef __SNUCL_COMPILER__
+  ReturnExpr = 0;
+  IsTransformed = false;
+  NextStmt = 0;
+#endif
 }
 
 CallExpr::CallExpr(ASTContext &C, StmtClass SC, EmptyShell Empty)
@@ -730,6 +751,12 @@ CallExpr::CallExpr(ASTContext &C, StmtClass SC, EmptyShell Empty)
   // FIXME: Why do we allocate this?
   SubExprs = new (C) Stmt*[PREARGS_START];
   CallExprBits.NumPreArgs = 0;
+
+#ifdef __SNUCL_COMPILER__
+  ReturnExpr = 0;
+  IsTransformed = false;
+  NextStmt = 0;
+#endif
 }
 
 CallExpr::CallExpr(ASTContext &C, StmtClass SC, unsigned NumPreArgs,
@@ -738,6 +765,12 @@ CallExpr::CallExpr(ASTContext &C, StmtClass SC, unsigned NumPreArgs,
   // FIXME: Why do we allocate this?
   SubExprs = new (C) Stmt*[PREARGS_START+NumPreArgs];
   CallExprBits.NumPreArgs = NumPreArgs;
+
+#ifdef __SNUCL_COMPILER__
+  ReturnExpr = 0;
+  IsTransformed = false;
+  NextStmt = 0;
+#endif
 }
 
 Decl *CallExpr::getCalleeDecl() {
@@ -2867,6 +2900,22 @@ Stmt::child_range SizeOfAlignOfExpr::children() {
   }
   return child_range(&Argument.Ex, &Argument.Ex + 1);
 }
+
+#ifdef __SNUCL_COMPILER__
+// VecStepExpr
+Stmt::child_range VecStepExpr::children() {
+  // If this is of a type and the type is a VLA type (and not a typedef), the
+  // size expression of the VLA needs to be treated as an executable expression.
+  // Why isn't this weirdness documented better in StmtIterator?
+  if (isArgumentType()) {
+    if (const VariableArrayType* T = dyn_cast<VariableArrayType>(
+                                   getArgumentType().getTypePtr()))
+      return child_range(child_iterator(T), child_iterator());
+    return child_range();
+  }
+  return child_range(&Argument.Ex, &Argument.Ex + 1);
+}
+#endif
 
 // ObjCMessageExpr
 Stmt::child_range ObjCMessageExpr::children() {

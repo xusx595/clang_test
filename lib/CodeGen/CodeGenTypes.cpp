@@ -235,6 +235,9 @@ const llvm::Type *CodeGenTypes::ConvertNewType(QualType T) {
       return llvm::IntegerType::get(getLLVMContext(),
         static_cast<unsigned>(Context.getTypeSize(T)));
 
+#ifdef __SNUCL_COMPILER__
+    case BuiltinType::Half:
+#endif
     case BuiltinType::Float:
     case BuiltinType::Double:
     case BuiltinType::LongDouble:

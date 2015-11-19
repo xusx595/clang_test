@@ -101,6 +101,11 @@ public:
   // Clone this attribute.
   virtual Attr* clone(ASTContext &C) const = 0;
 
+#ifdef __SNUCL_COMPILER__
+  virtual std::string getAsString() { return ""; }
+  virtual std::string getAsStringWithContext(ASTContext &C) { return ""; }
+#endif
+
   // Implement isa/cast/dyncast/etc.
   static bool classof(const Attr *) { return true; }
 };

@@ -277,6 +277,10 @@ class CFGBuilder {
   bool badCFG;
   CFG::BuildOptions BuildOpts;
   
+#ifdef __SNUCL_COMPILER__
+  int CurWCRID;
+#endif
+  
   // State to track for building switch statements.
   bool switchExclusivelyCovered;
   Expr::EvalResult *switchCond;
@@ -286,6 +290,9 @@ public:
                           Block(NULL), Succ(NULL),
                           SwitchTerminatedBlock(NULL), DefaultCaseBlock(NULL),
                           TryTerminatedBlock(NULL), badCFG(false),
+#ifdef __SNUCL_COMPILER__
+                          CurWCRID(-1),
+#endif
                           switchExclusivelyCovered(false), switchCond(0) {}
 
   // buildCFG - Used by external clients to construct the CFG.
@@ -544,6 +551,9 @@ CFG* CFGBuilder::buildCFG(const Decl *D, Stmt* Statement, ASTContext* C,
 ///  to the current (global) succcessor.
 CFGBlock* CFGBuilder::createBlock(bool add_successor) {
   CFGBlock* B = cfg->createBlock();
+#ifdef __SNUCL_COMPILER__
+  if (BuildOpts.NeedWCL) B->setWCRID(CurWCRID);
+#endif
   if (add_successor && Succ)
     addSuccessor(B, Succ);
   return B;
@@ -1185,6 +1195,25 @@ CFGBlock *CFGBuilder::VisitChooseExpr(ChooseExpr *C,
 
 
 CFGBlock* CFGBuilder::VisitCompoundStmt(CompoundStmt* C) {
+#ifdef __SNUCL_COMPILER__
+  // If this CompoundStmt is a WCR, make a new block.
+  CFGBlock* WCRLastBlock = NULL;
+  if (BuildOpts.NeedWCL && C->isWCR()) {
+    if (Block) {
+      Succ = Block;
+      if (badCFG)
+        return NULL;
+    }
+
+    // Create a new block containing the body statements.
+    CurWCRID = C->getWCRID();
+    Block = createBlock();
+
+    // This block is the last block of WCR.
+    WCRLastBlock = Block;
+  }
+#endif
+
   addLocalScopeAndDtors(C);
   CFGBlock* LastBlock = Block;
 
@@ -1198,6 +1227,29 @@ CFGBlock* CFGBuilder::VisitCompoundStmt(CompoundStmt* C) {
     if (badCFG)
       return NULL;
   }
+
+#ifdef __SNUCL_COMPILER__
+  // If this CompoundStmt is a WCR, make a new block.
+  if (BuildOpts.NeedWCL && C->isWCR()) {
+    // The block is finished.
+    if (Block) {
+      Succ = Block;
+      if (badCFG)
+        return NULL;
+
+      // Mark ths last block as the first block of WCR.
+      Block->setFirstOfWCR(true);
+
+      // Make a loop for WCR.
+      addSuccessor(WCRLastBlock, Block);
+    }
+
+    // Create a new block.
+    CurWCRID = -1;
+    Block = createBlock();
+    return Block;
+  }
+#endif
 
   return LastBlock;
 }
@@ -3264,6 +3316,11 @@ static void print_block(llvm::raw_ostream& OS, const CFG* cfg,
 
   // Print the header.
   OS << "\n [ B" << B.getBlockID();
+
+#ifdef __SNUCL_COMPILER__
+  if (B.getWCRID() > -1)
+    OS << " W" << B.getWCRID();
+#endif
 
   if (&B == &cfg->getEntry())
     OS << " (ENTRY) ]\n";

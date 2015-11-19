@@ -96,7 +96,9 @@ AttributeList::Kind AttributeList::getKind(const IdentifierInfo *Name) {
     .Case("address_space", AT_address_space)
     .Case("always_inline", AT_always_inline)
     .Case("returns_twice", IgnoredAttribute)
+#ifndef __SNUCL_COMPILER__
     .Case("vec_type_hint", IgnoredAttribute)
+#endif
     .Case("objc_exception", AT_objc_exception)
     .Case("objc_method_family", AT_objc_method_family)
     .Case("ext_vector_type", AT_ext_vector_type)
@@ -118,6 +120,11 @@ AttributeList::Kind AttributeList::getKind(const IdentifierInfo *Name) {
     .Case("ownership_holds", AT_ownership_holds)
     .Case("ownership_takes", AT_ownership_takes)
     .Case("reqd_work_group_size", AT_reqd_wg_size)
+#ifdef __SNUCL_COMPILER__
+    .Case("work_group_size_hint", AT_wg_size_hint)
+    .Case("vec_type_hint", AT_vec_type_hint)
+    .Case("endian", AT_endian)
+#endif
     .Case("init_priority", AT_init_priority)
     .Case("no_instrument_function", AT_no_instrument_function)
     .Case("thiscall", AT_thiscall)

@@ -1340,6 +1340,28 @@ bool FunctionDecl::hasBody(const FunctionDecl *&Definition) const {
   return false;
 }
 
+#ifdef __SNUCL_COMPILER__
+bool FunctionDecl::isDefined(FunctionDecl *&Definition) const {
+  for (redecl_iterator I = redecls_begin(), E = redecls_end(); I != E; ++I) {
+    if (I->Body) {
+      Definition = *I;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+FunctionDecl *FunctionDecl::getDefinition() const {
+  for (redecl_iterator I = redecls_begin(), E = redecls_end(); I != E; ++I) {
+    if (I->Body) {
+      return *I;
+    }
+  }
+  return 0;
+}
+#endif
+
 Stmt *FunctionDecl::getBody(const FunctionDecl *&Definition) const {
   for (redecl_iterator I = redecls_begin(), E = redecls_end(); I != E; ++I) {
     if (I->Body) {

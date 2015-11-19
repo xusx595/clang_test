@@ -172,11 +172,75 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
           case tok::kw_unsigned:
           case tok::kw_float:
           case tok::kw_double:
+#ifdef __SNUCL_COMPILER__
+          case tok::kw_half:
+          case tok::kw_uchar:
+          case tok::kw_ushort:
+          case tok::kw_uint:
+          case tok::kw_ulong:
+#endif
           case tok::kw_void:
           case tok::kw_typeof: {
             AttributeList *attr
                      = AttrFactory.Create(AttrName, AttrNameLoc, 0, AttrNameLoc,
                                           0, SourceLocation(), 0, 0);
+#ifdef __SNUCL_COMPILER__
+            if (attr->getKind() == AttributeList::AT_vec_type_hint) {
+              QualType PTy;
+              switch (Tok.getKind()) {
+                case tok::kw_bool:   PTy = Actions.Context.BoolTy;
+                                     break;
+                case tok::kw_char:   PTy = Actions.Context.CharTy;
+                                     break;
+                case tok::kw_uchar:  PTy = Actions.Context.UnsignedCharTy;
+                                     break;
+                case tok::kw_short:  PTy = Actions.Context.ShortTy;
+                                     break;
+                case tok::kw_ushort: PTy = Actions.Context.UnsignedShortTy;
+                                     break;
+                case tok::kw_int:    PTy = Actions.Context.IntTy;
+                                     break;
+                case tok::kw_uint:   PTy = Actions.Context.UnsignedIntTy;
+                                     break;
+                case tok::kw_long:   PTy = Actions.Context.LongTy;
+                                     break;
+                case tok::kw_ulong:  PTy = Actions.Context.UnsignedLongTy;
+                                     break;
+                case tok::kw_float:  PTy = Actions.Context.FloatTy;
+                                     break;
+                case tok::kw_double: PTy = Actions.Context.DoubleTy;
+                                     break;
+                case tok::kw_half:   PTy = Actions.Context.HalfTy;
+                                     break;
+                case tok::kw_void:   PTy = Actions.Context.VoidTy;
+                                     break;
+                case tok::kw_unsigned: {
+                  if (Tok.is(tok::r_paren)) {
+                    PTy = Actions.Context.UnsignedIntTy;
+                    break;
+                  }
+
+                  ConsumeToken();
+                  if (Tok.is(tok::kw_char)) {
+                    PTy = Actions.Context.UnsignedCharTy;
+                  } else if (Tok.is(tok::kw_short)) {
+                    PTy = Actions.Context.UnsignedShortTy;
+                  } else if (Tok.is(tok::kw_int)) {
+                    PTy = Actions.Context.UnsignedIntTy;
+                  } else if (Tok.is(tok::kw_long)) {
+                    PTy = Actions.Context.UnsignedLongTy;
+                  } else {
+                    Diag(Tok, diag::err_wrong_param_for_vec_type_hint);
+                  }
+
+                  break;
+                }
+                default:
+                  Diag(Tok, diag::err_wrong_param_for_vec_type_hint);
+              }
+              attr->setParamType(PTy);
+            }
+#endif
             attrs.add(attr);
             if (attr->getKind() == AttributeList::AT_IBOutletCollection)
               Diag(Tok, diag::err_iboutletcollection_builtintype);
@@ -445,8 +509,40 @@ Parser::DeclGroupPtrTy Parser::ParseDeclGroup(ParsingDeclSpec &DS,
         DS.ClearStorageClassSpecs();
       }
 
+#ifdef __SNUCL_COMPILER__
+      if (getLang().OpenCL) {
+        if (D.hasAttributes()) {
+          AttributeList *Attr = DS.getAttributes().getList();
+          do {
+            if (Attr->getKind() == AttributeList::AT_opencl_kernel_function) {
+              InOpenCLKernelFunction = true;
+              break;
+            }
+            Attr = Attr->getNext();
+          } while (Attr);
+        }
+
+        if (InOpenCLKernelFunction && !DS.hasTypeSpecifier()) {
+          // If the kernel function does not have the return type, 
+          // set 'void' as the return type.
+          const char *PrevSpec;
+          unsigned DiagID;
+          DS.SetTypeSpecType(DeclSpec::TST_void, DS.getTypeSpecTypeLoc(), 
+                             PrevSpec, DiagID);
+        }
+
+        Decl *TheDecl = ParseFunctionDefinition(D);
+        DeclGroupPtrTy Result = Actions.ConvertDeclToDeclGroup(TheDecl);
+        InOpenCLKernelFunction = false;
+        return Result;
+      } else {
+        Decl *TheDecl = ParseFunctionDefinition(D);
+        return Actions.ConvertDeclToDeclGroup(TheDecl);
+      }
+#else
       Decl *TheDecl = ParseFunctionDefinition(D);
       return Actions.ConvertDeclToDeclGroup(TheDecl);
+#endif
     }
     
     if (isDeclarationSpecifier()) {
@@ -1247,6 +1343,12 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         Diag(Tok, diag::ext_thread_before) << "static";
       isInvalid = DS.SetStorageClassSpec(DeclSpec::SCS_static, Loc, PrevSpec,
                                          DiagID, getLang());
+#ifdef __SNUCL_COMPILER__
+      if (InOpenCLKernelFunction) {
+        DiagID = diag::err_static_in_opencl_kernel;
+        isInvalid = true;
+      }
+#endif
       break;
     case tok::kw_auto:
       if (getLang().CPlusPlus0x || getLang().ObjC2) {
@@ -1345,6 +1447,40 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_int, Loc, PrevSpec,
                                      DiagID);
       break;
+#ifdef __SNUCL_COMPILER__
+    case tok::kw_half:
+      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_half, Loc, PrevSpec,
+                                     DiagID);
+      break;
+    case tok::kw_uchar:
+      isInvalid = DS.SetTypeSpecSign(DeclSpec::TSS_unsigned, Loc, PrevSpec,
+                                     DiagID);
+      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_char, Loc, PrevSpec,
+                                     DiagID);
+      break;
+    case tok::kw_ushort:
+      isInvalid = DS.SetTypeSpecSign(DeclSpec::TSS_unsigned, Loc, PrevSpec,
+                                     DiagID);
+      isInvalid = DS.SetTypeSpecWidth(DeclSpec::TSW_short, Loc, PrevSpec,
+                                      DiagID);
+      break;
+    case tok::kw_uint:
+      isInvalid = DS.SetTypeSpecSign(DeclSpec::TSS_unsigned, Loc, PrevSpec,
+                                     DiagID);
+      isInvalid = DS.SetTypeSpecType(DeclSpec::TST_int, Loc, PrevSpec,
+                                     DiagID);
+      break;
+    case tok::kw_ulong:
+      isInvalid = DS.SetTypeSpecSign(DeclSpec::TSS_unsigned, Loc, PrevSpec,
+                                     DiagID);
+      if (DS.getTypeSpecWidth() != DeclSpec::TSW_long)
+        isInvalid = DS.SetTypeSpecWidth(DeclSpec::TSW_long, Loc, PrevSpec,
+                                        DiagID);
+      else
+        isInvalid = DS.SetTypeSpecWidth(DeclSpec::TSW_longlong, Loc, PrevSpec,
+                                        DiagID);
+      break;
+#endif
     case tok::kw_float:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float, Loc, PrevSpec,
                                      DiagID);
@@ -1618,6 +1754,36 @@ bool Parser::ParseOptionalTypeSpecifier(DeclSpec &DS, bool& isInvalid,
   case tok::kw_int:
     isInvalid = DS.SetTypeSpecType(DeclSpec::TST_int, Loc, PrevSpec, DiagID);
     break;
+#ifdef __SNUCL_COMPILER__
+  case tok::kw_half:
+    isInvalid = DS.SetTypeSpecType(DeclSpec::TST_half, Loc, PrevSpec, DiagID);
+    break;
+  case tok::kw_uchar:
+    isInvalid = DS.SetTypeSpecSign(DeclSpec::TSS_unsigned, Loc, PrevSpec,
+                                   DiagID);
+    isInvalid = DS.SetTypeSpecType(DeclSpec::TST_char, Loc, PrevSpec, DiagID);
+    break;
+  case tok::kw_ushort:
+    isInvalid = DS.SetTypeSpecSign(DeclSpec::TSS_unsigned, Loc, PrevSpec,
+                                   DiagID);
+    isInvalid = DS.SetTypeSpecWidth(DeclSpec::TSW_short, Loc, PrevSpec, DiagID);
+    break;
+  case tok::kw_uint:
+    isInvalid = DS.SetTypeSpecSign(DeclSpec::TSS_unsigned, Loc, PrevSpec,
+                                   DiagID);
+    isInvalid = DS.SetTypeSpecType(DeclSpec::TST_int, Loc, PrevSpec, DiagID);
+    break;
+  case tok::kw_ulong:
+    isInvalid = DS.SetTypeSpecSign(DeclSpec::TSS_unsigned, Loc, PrevSpec,
+                                   DiagID);
+    if (DS.getTypeSpecWidth() != DeclSpec::TSW_long)
+      isInvalid = DS.SetTypeSpecWidth(DeclSpec::TSW_long, Loc, PrevSpec,
+                                      DiagID);
+    else
+      isInvalid = DS.SetTypeSpecWidth(DeclSpec::TSW_longlong, Loc, PrevSpec,
+                                      DiagID);
+    break;
+#endif
   case tok::kw_float:
     isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float, Loc, PrevSpec, DiagID);
     break;
@@ -2297,6 +2463,13 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
   case tok::kw_char16_t:
   case tok::kw_char32_t:
   case tok::kw_int:
+#ifdef __SNUCL_COMPILER__
+  case tok::kw_half:
+  case tok::kw_uchar:
+  case tok::kw_ushort:
+  case tok::kw_uint:
+  case tok::kw_ulong:
+#endif
   case tok::kw_float:
   case tok::kw_double:
   case tok::kw_bool:
@@ -2365,6 +2538,13 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_char16_t:
   case tok::kw_char32_t:
   case tok::kw_int:
+#ifdef __SNUCL_COMPILER__
+  case tok::kw_half:
+  case tok::kw_uchar:
+  case tok::kw_ushort:
+  case tok::kw_uint:
+  case tok::kw_ulong:
+#endif
   case tok::kw_float:
   case tok::kw_double:
   case tok::kw_bool:
@@ -2474,6 +2654,13 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_char32_t:
 
   case tok::kw_int:
+#ifdef __SNUCL_COMPILER__
+  case tok::kw_half:
+  case tok::kw_uchar:
+  case tok::kw_ushort:
+  case tok::kw_uint:
+  case tok::kw_ulong:
+#endif
   case tok::kw_float:
   case tok::kw_double:
   case tok::kw_bool:

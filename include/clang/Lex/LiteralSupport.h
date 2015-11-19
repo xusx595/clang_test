@@ -82,6 +82,10 @@ public:
   /// literal exactly, and false otherwise.
   llvm::APFloat::opStatus GetFloatValue(llvm::APFloat &Result);
 
+#ifdef __SNUCL_COMPILER__
+  std::string GetFloatValueAsString();
+#endif
+
 private:
 
   void ParseNumberStartingWithZero(SourceLocation TokLoc);

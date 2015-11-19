@@ -75,6 +75,9 @@ def ImplicitValueInitExpr : DStmt<Expr>;
 def ParenListExpr : DStmt<Expr>;
 def VAArgExpr : DStmt<Expr>;
 
+// __SNUCL_COMPILER__
+def VecStepExpr : DStmt<Expr>;
+
 // GNU Extensions.
 def AddrLabelExpr : DStmt<Expr>;
 def StmtExpr : DStmt<Expr>;

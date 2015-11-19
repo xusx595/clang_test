@@ -1,3 +1,50 @@
+/*****************************************************************************/
+/*                                                                           */
+/* Copyright (c) 2011-2013 Seoul National University.                        */
+/* All rights reserved.                                                      */
+/*                                                                           */
+/* Redistribution and use in source and binary forms, with or without        */
+/* modification, are permitted provided that the following conditions        */
+/* are met:                                                                  */
+/*   1. Redistributions of source code must retain the above copyright       */
+/*      notice, this list of conditions and the following disclaimer.        */
+/*   2. Redistributions in binary form must reproduce the above copyright    */
+/*      notice, this list of conditions and the following disclaimer in the  */
+/*      documentation and/or other materials provided with the distribution. */
+/*   3. Neither the name of Seoul National University nor the names of its   */
+/*      contributors may be used to endorse or promote products derived      */
+/*      from this software without specific prior written permission.        */
+/*                                                                           */
+/* THIS SOFTWARE IS PROVIDED BY SEOUL NATIONAL UNIVERSITY "AS IS" AND ANY    */
+/* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED */
+/* WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE    */
+/* DISCLAIMED. IN NO EVENT SHALL SEOUL NATIONAL UNIVERSITY BE LIABLE FOR ANY */
+/* DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL        */
+/* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS   */
+/* OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)     */
+/* HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,       */
+/* STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN  */
+/* ANY WAY OUT OF THE USE OF THIS  SOFTWARE, EVEN IF ADVISED OF THE          */
+/* POSSIBILITY OF SUCH DAMAGE.                                               */
+/*                                                                           */
+/* Contact information:                                                      */
+/*   Center for Manycore Programming                                         */
+/*   School of Computer Science and Engineering                              */
+/*   Seoul National University, Seoul 151-744, Korea                         */
+/*   http://aces.snu.ac.kr                                                   */
+/*                                                                           */
+/* Contributors:                                                             */
+/*   Sangmin Seo, Jungwon Kim, Gangwon Jo, Jun Lee, Jeongho Nah,             */
+/*   Jungho Park, Junghyun Kim, and Jaejin Lee                               */
+/*                                                                           */
+/*****************************************************************************/
+
+/*****************************************************************************/
+/* This file is based on the SNU-SAMSUNG OpenCL Compiler and is distributed  */
+/* under GNU General Public License.                                         */
+/* See LICENSE.SNU-SAMSUNG_OpenCL_C_Compiler.TXT for details.                */
+/*****************************************************************************/
+
 //===--- CFG.h - Classes for representing and building CFGs------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -323,6 +370,12 @@ class CFGBlock {
   ///   of the CFG.
   unsigned BlockID;
 
+#ifdef __SNUCL_COMPILER__
+  /// WCR_ID - ID of WCR
+  int WCR_ID;
+  bool FirstOfWCR;
+#endif
+
   /// Predecessors/Successors - Keep track of the predecessor / successor
   /// CFG blocks.
   typedef BumpVector<CFGBlock*> AdjacentBlocks;
@@ -330,9 +383,16 @@ class CFGBlock {
   AdjacentBlocks Succs;
 
 public:
+#ifdef __SNUCL_COMPILER__
+  explicit CFGBlock(unsigned blockid, BumpVectorContext &C)
+    : Elements(C), Label(NULL), Terminator(NULL), LoopTarget(NULL),
+      BlockID(blockid), WCR_ID(-1), FirstOfWCR(false), 
+      Preds(C, 1), Succs(C, 1) {}
+#else
   explicit CFGBlock(unsigned blockid, BumpVectorContext &C)
     : Elements(C), Label(NULL), Terminator(NULL), LoopTarget(NULL),
       BlockID(blockid), Preds(C, 1), Succs(C, 1) {}
+#endif
   ~CFGBlock() {}
 
   // Statement iterators
@@ -473,6 +533,13 @@ public:
 
   unsigned getBlockID() const { return BlockID; }
 
+#ifdef __SNUCL_COMPILER__
+  int getWCRID() const  { return WCR_ID; }
+  void setWCRID(int ID) { WCR_ID = ID; }
+  bool isFirstOfWCR() const  { return FirstOfWCR; }
+  void setFirstOfWCR(bool B) { FirstOfWCR = B; }
+#endif
+
   void dump(const CFG *cfg, const LangOptions &LO) const;
   void print(llvm::raw_ostream &OS, const CFG* cfg, const LangOptions &LO) const;
   void printTerminator(llvm::raw_ostream &OS, const LangOptions &LO) const;
@@ -536,12 +603,20 @@ public:
     bool AddEHEdges:1;
     bool AddInitializers:1;
     bool AddImplicitDtors:1;
+#ifdef __SNUCL_COMPILER__
+    bool NeedWCL;
+#endif
 
     BuildOptions()
         : PruneTriviallyFalseEdges(true)
         , AddEHEdges(false)
         , AddInitializers(false)
+#ifdef __SNUCL_COMPILER__
+        , AddImplicitDtors(false)
+        , NeedWCL(false) {}
+#else
         , AddImplicitDtors(false) {}
+#endif
   };
 
   /// buildCFG - Builds a CFG from an AST.  The responsibility to free the
