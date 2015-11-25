@@ -83,8 +83,18 @@ protected:
 
     /// \brief The statement class.
     unsigned sClass : 8;
+
+#ifdef __SNUCL_COMPILER__
+	bool HasBarrier : 1;
+#endif
   };
-  enum { NumStmtBits = 8 };
+ 
+#ifdef __SNUCL_COMPILER__
+   enum { NumStmtBits = 9 };
+#else
+   enum { NumStmtBits = 8 };
+#endif
+
 
   class CompoundStmtBitfields {
     friend class CompoundStmt;
@@ -327,17 +337,39 @@ protected:
   explicit Stmt(StmtClass SC, EmptyShell) : Stmt(SC) {}
 
 public:
-  Stmt(StmtClass SC) {
+	
+#ifdef __SNUCL_COMPILER__
+
+Stmt(StmtClass SC, bool HasBar=false) {
     static_assert(sizeof(*this) % llvm::AlignOf<void *>::Alignment == 0,
                   "Insufficient alignment!");
     StmtBits.sClass = SC;
+	StmtBits.HasBarrier = HasBar;
     if (StatisticsEnabled) Stmt::addStmtClass(SC);
   }
+
+#else
+
+Stmt(StmtClass SC) {
+  static_assert(sizeof(*this) % llvm::AlignOf<void *>::Alignment == 0,
+				"Insufficient alignment!");
+  StmtBits.sClass = SC;
+  if (StatisticsEnabled) Stmt::addStmtClass(SC);
+}
+
+
+#endif
+
 
   StmtClass getStmtClass() const {
     return static_cast<StmtClass>(StmtBits.sClass);
   }
   const char *getStmtClassName() const;
+
+#ifdef __SNUCL_COMPILER__
+  bool hasBarrier()          { return StmtBits.HasBarrier; }
+  void setBarrier(bool B)    { StmtBits.HasBarrier = B; }
+#endif
 
   /// SourceLocation tokens are not useful in isolation - they are low level
   /// value objects created/interpreted by SourceManager. We assume AST
@@ -539,6 +571,10 @@ public:
 class CompoundStmt : public Stmt {
   Stmt** Body;
   SourceLocation LBraceLoc, RBraceLoc;
+#ifdef __SNUCL_COMPILER__
+    bool IsStmtList;  // For splitting a normal stmt
+    int  WCR_ID;      // For marking a WCR (Work-item Coalescing Region)
+#endif
 
   friend class ASTStmtReader;
 
@@ -550,13 +586,30 @@ public:
   explicit CompoundStmt(SourceLocation Loc)
     : Stmt(CompoundStmtClass), Body(nullptr), LBraceLoc(Loc), RBraceLoc(Loc) {
     CompoundStmtBits.NumStmts = 0;
+#ifdef __SNUCL_COMPILER__
+        IsStmtList = false;
+        WCR_ID = -1;
+#endif
   }
 
   // \brief Build an empty compound statement.
   explicit CompoundStmt(EmptyShell Empty)
     : Stmt(CompoundStmtClass, Empty), Body(nullptr) {
     CompoundStmtBits.NumStmts = 0;
+#ifdef __SNUCL_COMPILER__
+    IsStmtList = false;
+    WCR_ID = -1;
+#endif
   }
+
+#ifdef __SNUCL_COMPILER__
+    bool isStmtList()          { return IsStmtList; }
+    void setIsStmtList(bool B) { IsStmtList = B; }
+  
+    bool isWCR()        { return WCR_ID >= 0; }
+    void setWCR(int ID) { WCR_ID = ID; }
+    int  getWCRID()     { return WCR_ID; }
+#endif
 
   void setStmts(const ASTContext &C, Stmt **Stmts, unsigned NumStmts);
 

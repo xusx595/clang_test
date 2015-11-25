@@ -412,6 +412,13 @@ class CFGBlock {
   ///   of the CFG.
   unsigned BlockID;
 
+#ifdef __SNUCL_COMPILER__
+  /// WCR_ID - ID of WCR
+  int WCR_ID;
+  bool FirstOfWCR;
+#endif
+
+
 public:
   /// This class represents a potential adjacent block in the CFG.  It encodes
   /// whether or not the block is actually reachable, or can be proved to be
@@ -488,6 +495,13 @@ private:
   CFG *Parent;
 
 public:
+
+ explicit CFGBlock(unsigned blockid, BumpVectorContext &C)
+      : Elements(C), Label(nullptr), Terminator(nullptr), LoopTarget(nullptr),
+        BlockID(blockid), WCR_ID(-1), FirstOfWCR(false), 
+        Preds(C, 1), Succs(C, 1) , HasNoReturnElement(false),
+        Parent(nullptr){}
+
   explicit CFGBlock(unsigned blockid, BumpVectorContext &C, CFG *parent)
     : Elements(C), Label(nullptr), Terminator(nullptr), LoopTarget(nullptr), 
       BlockID(blockid), Preds(C, 1), Succs(C, 1), HasNoReturnElement(false),
@@ -641,6 +655,14 @@ public:
 
   void dump() const;
 
+#ifdef __SNUCL_COMPILER__
+    int getWCRID() const  { return WCR_ID; }
+    void setWCRID(int ID) { WCR_ID = ID; }
+    bool isFirstOfWCR() const  { return FirstOfWCR; }
+    void setFirstOfWCR(bool B) { FirstOfWCR = B; }
+#endif
+
+
   void dump(const CFG *cfg, const LangOptions &LO, bool ShowColors = false) const;
   void print(raw_ostream &OS, const CFG* cfg, const LangOptions &LO,
              bool ShowColors) const;
@@ -734,6 +756,9 @@ public:
     bool AddEHEdges;
     bool AddInitializers;
     bool AddImplicitDtors;
+#ifdef __SNUCL_COMPILER__
+    bool NeedWCL;
+#endif
     bool AddTemporaryDtors;
     bool AddStaticInitBranches;
     bool AddCXXNewAllocator;
@@ -757,6 +782,9 @@ public:
       : forcedBlkExprs(nullptr), Observer(nullptr),
         PruneTriviallyFalseEdges(true), AddEHEdges(false),
         AddInitializers(false), AddImplicitDtors(false),
+#ifdef __SNUCL_COMPILER__
+        NeedWCL(false),
+#endif
         AddTemporaryDtors(false), AddStaticInitBranches(false),
         AddCXXNewAllocator(false), AddCXXDefaultInitExprInCtors(false) {}
   };

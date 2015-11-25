@@ -42,7 +42,7 @@ struct PrintingPolicy {
       SuppressStrongLifetime(false), SuppressLifetimeQualifiers(false),
       Bool(LO.Bool), TerseOutput(false), PolishForDeclaration(false),
       Half(LO.Half), MSWChar(LO.MicrosoftExt && !LO.WChar),
-      IncludeNewlines(true) { }
+      IncludeNewlines(true), Dump(false) { }
 
   /// \brief What language we're printing.
   LangOptions LangOpts;
@@ -163,6 +163,8 @@ struct PrintingPolicy {
 
   /// \brief When true, include newlines after statements like "break", etc.
   unsigned IncludeNewlines : 1;
+
+  bool Dump: 1;
 };
 
 } // end namespace clang

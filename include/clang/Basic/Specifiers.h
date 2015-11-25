@@ -275,6 +275,24 @@ namespace clang {
     Unspecified
   };
 
+#ifdef __SNUCL_COMPILER__
+    /// \brief OpenCL address qualifer.
+    enum OpenCLAddrQualifier {
+      AQ_Global,
+      AQ_Constant,
+      AQ_Local,
+      AQ_Private
+    };
+  
+    /// \brief OpenCL access qualifier.
+    enum OpenCLAccessQualifier {
+      ACQ_ReadOnly,
+      ACQ_WriteOnly,
+      ACQ_ReadWrite,
+      ACQ_None
+    };
+#endif
+
   /// Retrieve the spelling of the given nullability kind.
   llvm::StringRef getNullabilitySpelling(NullabilityKind kind,
                                          bool isContextSensitive = false);

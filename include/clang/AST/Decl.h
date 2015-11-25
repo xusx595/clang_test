@@ -745,6 +745,11 @@ protected:
   mutable InitType Init;
 
 private:
+#ifdef __SNUCL_COMPILER__
+  unsigned SecNum;  // for variable expansion
+  unsigned PosNum;  // for variable expansion
+  Stmt *Reinit;     // For the forward substitution optimization
+#endif
   class VarDeclBitfields {
     friend class VarDecl;
     friend class ASTDeclReader;
@@ -1357,6 +1362,10 @@ protected:
     assert(ParmVarDeclBits.IsKNRPromoted == false);
     assert(ParmVarDeclBits.IsObjCMethodParam == false);
     setDefaultArg(DefArg);
+#ifdef __SNUCL_COMPILER__
+    Modified = false;
+#endif
+
   }
 
 public:
@@ -1432,6 +1441,13 @@ public:
     Init = reinterpret_cast<Stmt *>(defarg);
   }
 
+#ifdef __SNUCL_COMPILER__
+    bool isModified()        { return Modified; }
+    void setModified(bool M) { Modified = M; }
+#endif
+
+
+
   /// \brief Retrieve the source range that covers the entire default
   /// argument.
   SourceRange getDefaultArgRange() const;
@@ -1503,6 +1519,11 @@ public:
 
 private:
   enum { ParameterIndexSentinel = (1 << NumParameterIndexBits) - 1 };
+
+#ifdef __SNUCL_COMPILER__
+    /// Check if this ParmVarDecl is modified in the function body.
+    bool Modified : 1;
+#endif
 
   void setParameterIndex(unsigned parameterIndex) {
     if (parameterIndex >= ParameterIndexSentinel) {
@@ -1591,6 +1612,7 @@ private:
   /// EndRangeLoc.
   SourceLocation EndRangeLoc;
 
+
   /// \brief The template or declaration that this declaration
   /// describes or was instantiated from, respectively.
   ///
@@ -1612,6 +1634,15 @@ private:
   /// DNLoc - Provides source/type location info for the
   /// declaration name embedded in the DeclaratorDecl base class.
   DeclarationNameLoc DNLoc;
+
+  
+#ifdef __SNUCL_COMPILER__
+      bool HasGotoStmt : 1;           // if this has GotoStmt or IndirectGotoStmt
+      bool HasBarrierCall : 1;          // if this invokes barrier() directly
+      bool HasIndirectBarrierCall : 1;  // if this invokes barrier() indirectly
+      bool FullyInlined : 1;
+      FunctionDecl *Duplication;
+#endif
 
   /// \brief Specify that this function declaration is actually a function
   /// template specialization.
@@ -1669,7 +1700,15 @@ protected:
       IsConstexpr(isConstexprSpecified), UsesSEHTry(false),
       HasSkippedBody(false), EndRangeLoc(NameInfo.getEndLoc()),
       TemplateOrSpecialization(),
-      DNLoc(NameInfo.getInfo()) {}
+      DNLoc(NameInfo.getInfo())
+#ifdef __SNUCL_COMPILER__
+      , HasGotoStmt(false),
+      HasBarrierCall(false),
+      HasIndirectBarrierCall(false),
+      FullyInlined(false),
+      Duplication(NULL)
+#endif
+     {}
 
   typedef Redeclarable<FunctionDecl> redeclarable_base;
   FunctionDecl *getNextRedeclarationImpl() override {
@@ -1727,6 +1766,25 @@ public:
 
   void setRangeEnd(SourceLocation E) { EndRangeLoc = E; }
 
+  
+#ifdef __SNUCL_COMPILER__
+    bool hasGotoStmt() const{ return HasGotoStmt; }
+    void setHasGotoStmt(bool B) { HasGotoStmt = B; }
+  
+    bool hasBarrierCall() const       { return HasBarrierCall; }
+    void setBarrierCall(bool B) { HasBarrierCall = B; }
+  
+    bool hasIndirectBarrierCall() const{ return HasIndirectBarrierCall; }
+    void setIndirectBarrierCall(bool B) { HasIndirectBarrierCall = B; }
+  
+    bool isFullyInlined() const{ return FullyInlined; }
+    void setFullyInlined(bool B) { FullyInlined = B; }
+  
+    FunctionDecl *getDuplication()        { return Duplication; }
+    void setDuplication(FunctionDecl *FD) { Duplication = FD; }
+#endif
+
+
   SourceRange getSourceRange() const override LLVM_READONLY;
 
   /// \brief Returns true if the function has a body (definition). The
@@ -1744,6 +1802,11 @@ public:
   /// hasTrivialBody - Returns whether the function has a trivial body that does
   /// not require any specific codegen.
   bool hasTrivialBody() const;
+
+#ifdef __SNUCL_COMPILER__
+  FunctionDecl *getDefinition() const;
+#endif
+
 
   /// isDefined - Returns true if the function is defined at all, including
   /// a deleted definition. Except for the behavior when the function is

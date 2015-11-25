@@ -116,6 +116,10 @@ public:
   /// however, an attribute can override this. Returns true if the attribute
   /// can be duplicated when merging.
   bool duplicatesAllowed() const { return DuplicatesAllowed; }
+#ifdef __SNUCL_COMPILER__
+  virtual std::string getAsString() { return ""; }
+  virtual std::string getAsStringWithContext(ASTContext &C) { return ""; }
+#endif
 };
 
 class InheritableAttr : public Attr {

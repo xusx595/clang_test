@@ -1374,6 +1374,19 @@ public:
 class FloatingLiteral : public Expr, private APFloatStorage {
   SourceLocation Loc;
 
+#ifdef __SNUCL_COMPILER__
+    std::string ValueStr;
+    FloatingLiteral(ASTContext &C, const llvm::APFloat &V, bool isexact,
+                    QualType Type, SourceLocation L, std::string VStr)
+      : Expr(FloatingLiteralClass, Type, VK_RValue, OK_Ordinary, false, false,
+             false, false),
+        Loc(L), ValueStr(VStr) {
+        setValue(C, V);
+        FloatingLiteralBits.IsExact = false;
+    }
+#endif
+
+
   FloatingLiteral(const ASTContext &C, const llvm::APFloat &V, bool isexact,
                   QualType Type, SourceLocation L);
 
@@ -1381,6 +1394,13 @@ class FloatingLiteral : public Expr, private APFloatStorage {
   explicit FloatingLiteral(const ASTContext &C, EmptyShell Empty);
 
 public:
+
+#ifdef __SNUCL_COMPILER__
+    static FloatingLiteral *Create(ASTContext &C, const llvm::APFloat &V,
+                                   bool isexact, QualType Type, SourceLocation L,
+                                   std::string VStr);
+#endif
+
   static FloatingLiteral *Create(const ASTContext &C, const llvm::APFloat &V,
                                  bool isexact, QualType Type, SourceLocation L);
   static FloatingLiteral *Create(const ASTContext &C, EmptyShell Empty);
@@ -1392,6 +1412,11 @@ public:
     assert(&getSemantics() == &Val.getSemantics() && "Inconsistent semantics");
     APFloatStorage::setValue(C, Val);
   }
+
+#ifdef __SNUCL_COMPILER__
+    std::string getValueAsString() { return ValueStr; }
+#endif
+
 
   /// Get a raw enumeration value representing the floating-point semantics of
   /// this literal (32-bit IEEE, x87, ...), suitable for serialisation.
@@ -2071,6 +2096,95 @@ public:
   // Iterators
   child_range children();
 };
+
+#ifdef __SNUCL_COMPILER__
+/// VecStepExpr - [OpenCL 6.12.12] - This is for vec_step() builtin, both of
+/// types and expressions.
+class VecStepExpr : public Expr {
+  bool isType : 1;    // true if operand is a type, false if an expression
+  union {
+    TypeSourceInfo *Ty;
+    Stmt *Ex;
+  } Argument;
+  SourceLocation OpLoc, RParenLoc;
+
+public:
+  VecStepExpr(TypeSourceInfo *TInfo, QualType resultType, SourceLocation op,
+              SourceLocation rp) :
+      Expr(VecStepExprClass, resultType, VK_RValue, OK_Ordinary,
+           false, // Never type-dependent (C++ [temp.dep.expr]p3).
+           // Value-dependent if the argument is type-dependent.
+           TInfo->getType()->isDependentType(),
+           TInfo->getType()->isInstantiationDependentType(),
+           TInfo->getType()->containsUnexpandedParameterPack()),
+      isType(true), OpLoc(op), RParenLoc(rp) {
+    Argument.Ty = TInfo;
+  }
+
+  VecStepExpr(Expr *E, QualType resultType, SourceLocation op,
+              SourceLocation rp) :
+      Expr(VecStepExprClass, resultType, VK_RValue, OK_Ordinary,
+           false, // Never type-dependent (C++ [temp.dep.expr]p3).
+           // Value-dependent if the argument is type-dependent.
+           E->isTypeDependent(),
+           E->isInstantiationDependent(),
+           E->containsUnexpandedParameterPack()),
+      isType(false), OpLoc(op), RParenLoc(rp) {
+    Argument.Ex = E;
+  }
+
+  /// \brief Construct an empty sizeof/alignof expression.
+  explicit VecStepExpr(EmptyShell Empty)
+    : Expr(VecStepExprClass, Empty) { }
+
+  bool isArgumentType() const { return isType; }
+  QualType getArgumentType() const {
+    return getArgumentTypeInfo()->getType();
+  }
+  TypeSourceInfo *getArgumentTypeInfo() const {
+    assert(isArgumentType() && "calling getArgumentType() when arg is expr");
+    return Argument.Ty;
+  }
+  Expr *getArgumentExpr() {
+    assert(!isArgumentType() && "calling getArgumentExpr() when arg is type");
+    return static_cast<Expr*>(Argument.Ex);
+  }
+  const Expr *getArgumentExpr() const {
+    return const_cast<VecStepExpr*>(this)->getArgumentExpr();
+  }
+
+  void setArgument(Expr *E) { Argument.Ex = E; isType = false; }
+  void setArgument(TypeSourceInfo *TInfo) {
+    Argument.Ty = TInfo;
+    isType = true;
+  }
+
+  /// Gets the argument type, or the type of the argument expression, whichever
+  /// is appropriate.
+  QualType getTypeOfArgument() const {
+    return isArgumentType() ? getArgumentType() : getArgumentExpr()->getType();
+  }
+
+  SourceLocation getOperatorLoc() const { return OpLoc; }
+  void setOperatorLoc(SourceLocation L) { OpLoc = L; }
+
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+  void setRParenLoc(SourceLocation L) { RParenLoc = L; }
+
+  SourceRange getSourceRange() const {
+    return SourceRange(OpLoc, RParenLoc);
+  }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == VecStepExprClass;
+  }
+  static bool classof(const VecStepExpr *) { return true; }
+
+  // Iterators
+  child_range children();
+};
+#endif
+
 
 //===----------------------------------------------------------------------===//
 // Postfix Operators.
@@ -3253,6 +3367,11 @@ public:
 
   Expr *getLHS() const { return cast<Expr>(SubExprs[LHS]); }
   Expr *getRHS() const { return cast<Expr>(SubExprs[RHS]); }
+#ifdef __SNUCL_COMPILER__
+    void setCond(Expr *E) { SubExprs[COND] = E; }
+    void setLHS(Expr *E)  { SubExprs[LHS] = E; }
+    void setRHS(Expr *E)  { SubExprs[RHS] = E; }
+#endif
 
   SourceLocation getLocStart() const LLVM_READONLY {
     return getCond()->getLocStart();
@@ -4428,6 +4547,10 @@ public:
     assert(Init < getNumExprs() && "Initializer access out of range!");
     return cast_or_null<Expr>(Exprs[Init]);
   }
+
+#ifdef __SNUCL_COMPILER__
+    void setExpr(unsigned Init, Expr *E) { Exprs[Init] = E; }
+#endif
 
   Expr **getExprs() { return reinterpret_cast<Expr **>(Exprs); }
 

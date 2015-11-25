@@ -293,6 +293,8 @@ class ASTContext : public RefCountedBase<ASTContext> {
   /// wasting space in the Decl class.
   llvm::DenseMap<const Decl*, AttrVec*> DeclAttrs;
 
+  TypeSourceInfo NullTypeSourceInfo;
+
   /// \brief A mapping from non-redeclarable declarations in modules that were
   /// merged with other declarations to the canonical declaration that they were
   /// merged into.
@@ -2350,6 +2352,8 @@ public:
   TypeSourceInfo *
   getTrivialTypeSourceInfo(QualType T, 
                            SourceLocation Loc = SourceLocation()) const;
+
+  TypeSourceInfo *getNullTypeSourceInfo() { return &NullTypeSourceInfo; }
 
   /// \brief Add a deallocation callback that will be invoked when the 
   /// ASTContext is destroyed.

@@ -734,6 +734,50 @@ SourceLocation Decl::getBodyRBrace() const {
   return SourceLocation();
 }
 
+#ifdef __SNUCL_COMPILER__
+OpenCLAddrQualifier Decl::getAddrQualifier() const {
+  if (const AnnotateAttr *AA = getAttr<AnnotateAttr>()) {
+    StringRef Annotation = AA->getAnnotation();
+    if (Annotation.equals(StringRef("cl_global")))   return AQ_Global;
+    if (Annotation.equals(StringRef("cl_constant"))) return AQ_Constant;
+    if (Annotation.equals(StringRef("cl_local")))    return AQ_Local;
+  }
+  return AQ_Private;
+}
+
+const char *Decl::getAddrQualifierString(bool WithPrivate) const {
+  switch (getAddrQualifier()) {
+    case AQ_Global:   return "__global";
+    case AQ_Constant: return "__constant";
+    case AQ_Local:    return "__local";
+    case AQ_Private:  return WithPrivate ? "__private" : "";
+    default: break;
+  }
+  return "";
+}
+
+OpenCLAccessQualifier Decl::getAccessQualifier() const {
+  if (const AnnotateAttr *AA = getAttr<AnnotateAttr>()) {
+    StringRef Annotation = AA->getAnnotation();
+    if (Annotation.equals(StringRef("cl_read_only")))  return ACQ_ReadOnly;
+    if (Annotation.equals(StringRef("cl_write_only"))) return ACQ_WriteOnly;
+    if (Annotation.equals(StringRef("cl_read_write"))) return ACQ_ReadWrite;
+  }
+  return ACQ_None;
+}
+
+const char *Decl::getAccessQualifierString() const {
+  switch (getAccessQualifier()) {
+    case ACQ_ReadOnly:  return "__read_only";
+    case ACQ_WriteOnly: return "__write_only";
+    case ACQ_ReadWrite: return "__read_write";
+    default: break;
+  }
+  return "";
+}
+#endif
+
+
 bool Decl::AccessDeclContextSanity() const {
 #ifndef NDEBUG
   // Suppress this check if any of the following hold:

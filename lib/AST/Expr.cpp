@@ -753,6 +753,16 @@ FloatingLiteral::FloatingLiteral(const ASTContext &C, EmptyShell Empty)
   FloatingLiteralBits.IsExact = false;
 }
 
+#ifdef __SNUCL_COMPILER__
+FloatingLiteral *
+FloatingLiteral::Create(ASTContext &C, const llvm::APFloat &V,
+                        bool isexact, QualType Type, SourceLocation L,
+                        std::string VStr) {
+  return new (C) FloatingLiteral(C, V, isexact, Type, L, VStr);
+}
+#endif
+
+
 FloatingLiteral *
 FloatingLiteral::Create(const ASTContext &C, const llvm::APFloat &V,
                         bool isexact, QualType Type, SourceLocation L) {

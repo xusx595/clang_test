@@ -223,6 +223,9 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     break;
   
   case Stmt::ArrayTypeTraitExprClass:
+ #ifdef __SNUCL_COMPILER__
+  case Stmt::VecStepExprClass:     
+#endif
   case Stmt::AsTypeExprClass:
   case Stmt::AtomicExprClass:
   case Stmt::BinaryConditionalOperatorClass:

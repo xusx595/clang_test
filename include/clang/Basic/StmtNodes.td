@@ -93,6 +93,9 @@ def PseudoObjectExpr : DStmt<Expr>;
 // Atomic expressions
 def AtomicExpr : DStmt<Expr>;
 
+// __SNUCL_COMPILER__
+def VecStepExpr : DStmt<Expr>;
+
 // GNU Extensions.
 def AddrLabelExpr : DStmt<Expr>;
 def StmtExpr : DStmt<Expr>;

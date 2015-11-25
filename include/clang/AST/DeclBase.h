@@ -365,6 +365,13 @@ protected:
 
 public:
 
+#ifdef __SNUCL_COMPILER__
+    OpenCLAddrQualifier getAddrQualifier() const;
+    const char *getAddrQualifierString(bool WithPrivate=false) const;
+    OpenCLAccessQualifier getAccessQualifier() const;
+    const char *getAccessQualifierString() const;
+#endif
+
   /// \brief Source range that this declaration covers.
   virtual SourceRange getSourceRange() const LLVM_READONLY {
     return SourceRange(getLocation(), getLocation());
